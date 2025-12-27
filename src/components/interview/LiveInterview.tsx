@@ -246,8 +246,18 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       const available = window.speechSynthesis.getVoices();
       setVoices(available); // Keep this to populate the `voices` state if needed elsewhere
 
-      // Look for youthful male voices
-      const maleVoices = available.filter(v =>
+      // Map user accent preference to voice filters
+      const accent = user.preferences?.voiceAccent || 'US English';
+      let accentCode = 'en-US';
+      if (accent === 'UK English') accentCode = 'en-GB';
+      if (accent === 'Australian English') accentCode = 'en-AU';
+      if (accent === 'Indian English') accentCode = 'en-IN';
+
+      // Look for voices matching accent first
+      const accentVoices = available.filter(v => v.lang.startsWith(accentCode));
+
+      // Look for youthful male voices within accent group if possible, else global
+      const maleVoices = (accentVoices.length > 0 ? accentVoices : available).filter(v =>
         v.name.toLowerCase().includes('male') ||
         v.name.toLowerCase().includes('daniel') ||
         v.name.toLowerCase().includes('alex') ||
@@ -256,14 +266,17 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
         v.name.toLowerCase().includes('andrew')
       );
 
-      // Prioritize Alex (youthful Mac voice) or Daniel, then first available male, then standard
-      const preferred = maleVoices.find(v => v.name.includes('Alex')) ||
-        maleVoices.find(v => v.name.includes('Daniel')) ||
-        maleVoices.find(v => v.name.includes('Guy')) ||
-        maleVoices[0] ||
-        available.find(v => v.lang.startsWith('en'));
+      // Prioritize specific high-quality voices if they match the requested accent
+      let preferred = null;
 
-      setSelectedVoice(preferred || null);
+      if (accent === 'US English') {
+        preferred = maleVoices.find(v => v.name.includes('Alex')) || maleVoices.find(v => v.name.includes('Fred'));
+      } else if (accent === 'UK English') {
+        preferred = maleVoices.find(v => v.name.includes('Daniel'));
+      }
+
+      // Fallback: First male voice in accent -> First voice in accent -> First English voice
+      setSelectedVoice(preferred || maleVoices[0] || accentVoices[0] || available.find(v => v.lang.startsWith('en')) || null);
     };
 
     loadVoices();
@@ -273,7 +286,10 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
   }, []);
 
   const speak = (text: string) => {
-    if (!text) return;
+    // Check if voice is enabled in preferences (default to true)
+    const isVoiceEnabled = user.preferences?.voiceEnabled ?? true;
+    if (!text || !isVoiceEnabled) return;
+
     if ('speechSynthesis' in window) {
       // Clear any pending speak task
       if (pendingSpeakRef.current) {
@@ -296,8 +312,14 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
           utterance.voice = selectedVoice;
         }
 
-        utterance.rate = 1.05;
-        utterance.pitch = 1.1;
+        // Apply Speed Preference
+        const speedPref = user.preferences?.voiceSpeed || 'Normal';
+        let rate = 1.05; // Normal default
+        if (speedPref === 'Slow') rate = 0.85;
+        if (speedPref === 'Fast') rate = 1.25;
+
+        utterance.rate = rate;
+        utterance.pitch = 1.1; // Keep youthful pitch
         utterance.volume = 1.0;
 
         utterance.onstart = () => {

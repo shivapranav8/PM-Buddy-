@@ -13,6 +13,9 @@ interface SettingsScreenProps {
 export default function SettingsScreen({ user, preferences, onUpdatePreferences, onLogout }: SettingsScreenProps) {
   const navigate = useNavigate();
   const [apiKey, setApiKey] = useState(preferences?.apiKey || '');
+  const [voiceSpeed, setVoiceSpeed] = useState(preferences?.voiceSpeed || 'Normal');
+  const [voiceAccent, setVoiceAccent] = useState(preferences?.voiceAccent || 'US English');
+  const [voiceEnabled, setVoiceEnabled] = useState(preferences?.voiceEnabled ?? true);
   const [isSaving, setIsSaving] = useState(false);
   const [saveSuccess, setSaveSuccess] = useState(false);
 
@@ -33,7 +36,10 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
         console.log('SettingsScreen: Calling onUpdatePreferences');
         await onUpdatePreferences({
           ...preferences,
-          apiKey
+          apiKey,
+          voiceSpeed,
+          voiceAccent,
+          voiceEnabled
         });
         console.log('SettingsScreen: onUpdatePreferences completed');
         setSaveSuccess(true);
@@ -147,7 +153,8 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
             <div>
               <label className="block text-slate-700 mb-2">Voice Speed</label>
               <select
-                defaultValue="Normal"
+                value={voiceSpeed}
+                onChange={(e) => setVoiceSpeed(e.target.value as any)}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option>Slow</option>
@@ -159,7 +166,8 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
             <div>
               <label className="block text-slate-700 mb-2">Interviewer Accent</label>
               <select
-                defaultValue="US English"
+                value={voiceAccent}
+                onChange={(e) => setVoiceAccent(e.target.value as any)}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option>US English</option>
@@ -167,6 +175,21 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
                 <option>Australian English</option>
                 <option>Indian English</option>
               </select>
+            </div>
+
+            <div className="flex items-center justify-between pt-2">
+              <div>
+                <label className="block text-slate-700 font-medium">Enable AI Voice</label>
+                <p className="text-sm text-slate-500">Play audio responses from the interviewer</p>
+              </div>
+              <button
+                onClick={() => setVoiceEnabled(!voiceEnabled)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${voiceEnabled ? 'bg-indigo-600' : 'bg-slate-200'}`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${voiceEnabled ? 'translate-x-6' : 'translate-x-1'}`}
+                />
+              </button>
             </div>
           </div>
         </div>

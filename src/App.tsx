@@ -16,6 +16,7 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  preferences?: UserPreferences;
 }
 
 export interface Session {
@@ -48,6 +49,9 @@ export interface UserPreferences {
   level: string;
   focusAreas: string[];
   customRound: string;
+  voiceSpeed?: 'Slow' | 'Normal' | 'Fast';
+  voiceAccent?: 'US English' | 'UK English' | 'Australian English' | 'Indian English';
+  voiceEnabled?: boolean;
 }
 
 function AppContent() {
@@ -211,7 +215,8 @@ function AppContent() {
     id: user.uid,
     name: user.displayName || 'User',
     email: user.email || '',
-    avatar: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`
+    avatar: user.photoURL || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.uid}`,
+    preferences: preferences || undefined
   } : null;
 
   return (
