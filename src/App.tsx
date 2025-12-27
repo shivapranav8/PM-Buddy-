@@ -185,23 +185,42 @@ function AppContent() {
     setPreferences(prefs);
     localStorage.setItem('pm-mock-preferences', JSON.stringify(prefs));
 
-    // Update API Key in Firestore if changed
-    if (user && prefs.apiKey) {
+    // Update preferences in Firestore
+    if (user) {
       try {
-        console.log('Attempting to save API key to Firestore for user:', user.uid);
         const { doc, setDoc } = await import('firebase/firestore');
         const { db } = await import('./firebase');
-        await setDoc(doc(db, 'users', user.uid, 'settings', 'openai'), {
-          apiKey: prefs.apiKey,
+
+        // Save API Key to settings subcollection
+        if (prefs.apiKey) {
+          console.log('Attempting to save API key to Firestore for user:', user.uid);
+          await setDoc(doc(db, 'users', user.uid, 'settings', 'openai'), {
+            apiKey: prefs.apiKey,
+            updatedAt: new Date().toISOString()
+          }, { merge: true });
+          console.log('API Key updated in Firestore successfully');
+        }
+
+        // Save other preferences to user document
+        await setDoc(doc(db, 'users', user.uid), {
+          preferences: {
+            targetCompanies: prefs.targetCompanies,
+            level: prefs.level,
+            focusAreas: prefs.focusAreas,
+            customRound: prefs.customRound,
+            voiceSpeed: prefs.voiceSpeed,
+            voiceAccent: prefs.voiceAccent,
+            voiceEnabled: prefs.voiceEnabled
+          },
           updatedAt: new Date().toISOString()
         }, { merge: true });
-        console.log('API Key updated in Firestore successfully');
+        console.log('Preferences updated in Firestore successfully');
       } catch (error) {
-        console.error('Error updating API Key in Firestore:', error);
+        console.error('Error updating preferences in Firestore:', error);
         throw error; // Re-throw to let UI know it failed
       }
     } else {
-      console.warn('Skipping Firestore write: User or API Key missing', { user: !!user, apiKey: !!prefs.apiKey });
+      console.warn('Skipping Firestore write: User not logged in');
     }
   };
 

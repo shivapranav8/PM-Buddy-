@@ -16,43 +16,84 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
   const [voiceSpeed, setVoiceSpeed] = useState(preferences?.voiceSpeed || 'Normal');
   const [voiceAccent, setVoiceAccent] = useState(preferences?.voiceAccent || 'US English');
   const [voiceEnabled, setVoiceEnabled] = useState(preferences?.voiceEnabled ?? true);
-  const [isSaving, setIsSaving] = useState(false);
-  const [saveSuccess, setSaveSuccess] = useState(false);
+  const [isSavingApiKey, setIsSavingApiKey] = useState(false);
+  const [isSavingPrefs, setIsSavingPrefs] = useState(false);
+  const [apiKeySaveSuccess, setApiKeySaveSuccess] = useState(false);
+  const [prefsSaveSuccess, setPrefsSaveSuccess] = useState(false);
 
-  const handleSave = async () => {
-    console.log('SettingsScreen: handleSave called');
+  const handleSaveApiKey = async () => {
+    console.log('SettingsScreen: handleSaveApiKey called');
 
     if (!apiKey.trim().startsWith('sk-')) {
       alert("Invalid API Key. It must start with 'sk-'. Please check your key.");
       return;
     }
 
-    setIsSaving(true);
-    setSaveSuccess(false);
+    setIsSavingApiKey(true);
+    setApiKeySaveSuccess(false);
 
     try {
-      console.log('SettingsScreen: Checking preferences object', { preferences, apiKey });
       if (preferences) {
-        console.log('SettingsScreen: Calling onUpdatePreferences');
         await onUpdatePreferences({
           ...preferences,
-          apiKey,
+          apiKey
+        });
+        setApiKeySaveSuccess(true);
+        setTimeout(() => setApiKeySaveSuccess(false), 3000);
+      }
+    } catch (error) {
+      console.error("Failed to save API key:", error);
+      alert("Failed to save API key. Please try again.");
+    } finally {
+      setIsSavingApiKey(false);
+    }
+  };
+
+  const handleRemoveApiKey = async () => {
+    if (!confirm('Are you sure you want to remove your API key? You will need to re-enter it to use the interview feature.')) {
+      return;
+    }
+
+    setIsSavingApiKey(true);
+    try {
+      if (preferences) {
+        setApiKey('');
+        await onUpdatePreferences({
+          ...preferences,
+          apiKey: ''
+        });
+        alert('API key removed successfully');
+      }
+    } catch (error) {
+      console.error("Failed to remove API key:", error);
+      alert("Failed to remove API key. Please try again.");
+    } finally {
+      setIsSavingApiKey(false);
+    }
+  };
+
+  const handleSavePreferences = async () => {
+    console.log('SettingsScreen: handleSavePreferences called');
+
+    setIsSavingPrefs(true);
+    setPrefsSaveSuccess(false);
+
+    try {
+      if (preferences) {
+        await onUpdatePreferences({
+          ...preferences,
           voiceSpeed,
           voiceAccent,
           voiceEnabled
         });
-        console.log('SettingsScreen: onUpdatePreferences completed');
-        setSaveSuccess(true);
-        setTimeout(() => setSaveSuccess(false), 3000);
-      } else {
-        console.error('SettingsScreen: Preferences object is null/undefined');
-        alert("Error: User preferences not loaded. Please try reloading the page.");
+        setPrefsSaveSuccess(true);
+        setTimeout(() => setPrefsSaveSuccess(false), 3000);
       }
     } catch (error) {
-      console.error("Failed to save settings:", error);
-      alert("Failed to save settings. Please try again.");
+      console.error("Failed to save preferences:", error);
+      alert("Failed to save preferences. Please try again.");
     } finally {
-      setIsSaving(false);
+      setIsSavingPrefs(false);
     }
   };
 
@@ -108,26 +149,37 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
 
           <div className="flex items-center gap-3">
             <button
-              onClick={handleSave}
-              disabled={isSaving || !apiKey.trim()}
+              onClick={handleSaveApiKey}
+              disabled={isSavingApiKey || !apiKey.trim()}
               className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
-              {isSaving ? (
+              {isSavingApiKey ? (
                 <>
                   <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   <span>Saving...</span>
                 </>
               ) : (
-                'Save Changes'
+                'Save API Key'
               )}
             </button>
 
-            {saveSuccess && (
+            <button
+              onClick={handleRemoveApiKey}
+              disabled={isSavingApiKey || !apiKey.trim()}
+              className="px-6 py-3 bg-red-50 text-red-600 border-2 border-red-200 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+              </svg>
+              Remove
+            </button>
+
+            {apiKeySaveSuccess && (
               <div className="flex items-center gap-2 text-green-600">
                 <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                <span>Saved successfully!</span>
+                <span>Saved!</span>
               </div>
             )}
           </div>
@@ -192,10 +244,37 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
               </button>
             </div>
           </div>
+
+          {/* Save Button for Interview Preferences */}
+          <div className="flex items-center gap-3 pt-4 border-t border-slate-200 mt-4">
+            <button
+              onClick={handleSavePreferences}
+              disabled={isSavingPrefs}
+              className="px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+            >
+              {isSavingPrefs ? (
+                <>
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  <span>Saving...</span>
+                </>
+              ) : (
+                'Save Preferences'
+              )}
+            </button>
+
+            {prefsSaveSuccess && (
+              <div className="flex items-center gap-2 text-green-600">
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+                <span>Saved!</span>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Privacy & Data */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
+        < div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6" >
           <h3 className="text-slate-900 mb-4">Privacy & Data</h3>
           <div className="space-y-4">
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
@@ -219,10 +298,10 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
               Clear All Local Data
             </button>
           </div>
-        </div>
+        </div >
 
         {/* Danger zone */}
-        <div className="bg-white rounded-2xl border-2 border-red-200 p-6">
+        < div className="bg-white rounded-2xl border-2 border-red-200 p-6" >
           <h3 className="text-red-900 mb-4">Danger Zone</h3>
           <p className="text-slate-600 mb-4">
             Once you log out, all your local data will be cleared from this browser.
@@ -233,8 +312,8 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
           >
             Logout
           </button>
-        </div>
-      </div>
-    </div>
+        </div >
+      </div >
+    </div >
   );
 }

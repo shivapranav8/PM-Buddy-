@@ -244,39 +244,39 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
   useEffect(() => {
     const loadVoices = () => {
       const available = window.speechSynthesis.getVoices();
-      setVoices(available); // Keep this to populate the `voices` state if needed elsewhere
+      setVoices(available);
 
-      // Map user accent preference to voice filters
+      console.log('Available voices:', available.map(v => `${v.name} (${v.lang})`));
+
+      // Get user's accent preference
       const accent = user.preferences?.voiceAccent || 'US English';
       let accentCode = 'en-US';
       if (accent === 'UK English') accentCode = 'en-GB';
       if (accent === 'Australian English') accentCode = 'en-AU';
       if (accent === 'Indian English') accentCode = 'en-IN';
 
-      // Look for voices matching accent first
+      // Find voices matching the preferred accent
       const accentVoices = available.filter(v => v.lang.startsWith(accentCode));
 
-      // Look for youthful male voices within accent group if possible, else global
-      const maleVoices = (accentVoices.length > 0 ? accentVoices : available).filter(v =>
-        v.name.toLowerCase().includes('male') ||
-        v.name.toLowerCase().includes('daniel') ||
-        v.name.toLowerCase().includes('alex') ||
-        v.name.toLowerCase().includes('david') ||
-        v.name.toLowerCase().includes('guy') ||
-        v.name.toLowerCase().includes('andrew')
-      );
+      // Prioritize male voices for each accent
+      let selectedVoice = null;
 
-      // Prioritize specific high-quality voices if they match the requested accent
-      let preferred = null;
-
-      if (accent === 'US English') {
-        preferred = maleVoices.find(v => v.name.includes('Alex')) || maleVoices.find(v => v.name.includes('Fred'));
-      } else if (accent === 'UK English') {
-        preferred = maleVoices.find(v => v.name.includes('Daniel'));
+      if (accent === 'UK English') {
+        selectedVoice = accentVoices.find(v => v.name.includes('Daniel'));
+      } else if (accent === 'Australian English') {
+        selectedVoice = accentVoices.find(v => v.name.includes('Lee'));
+      } else if (accent === 'Indian English') {
+        selectedVoice = accentVoices.find(v => v.name.includes('Rishi'));
+      } else if (accent === 'US English') {
+        selectedVoice = accentVoices.find(v => v.name.includes('Alex')) ||
+          accentVoices.find(v => v.name.includes('Fred'));
       }
 
-      // Fallback: First male voice in accent -> First voice in accent -> First English voice
-      setSelectedVoice(preferred || maleVoices[0] || accentVoices[0] || available.find(v => v.lang.startsWith('en')) || null);
+      // Fallback: First accent voice -> browser default -> first available
+      selectedVoice = selectedVoice || accentVoices[0] || available.find(v => v.default) || available[0] || null;
+
+      console.log('Selected voice:', selectedVoice?.name, selectedVoice?.lang);
+      setSelectedVoice(selectedVoice);
     };
 
     loadVoices();
@@ -300,11 +300,12 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
       // Stop any ongoing speech
       window.speechSynthesis.cancel();
-      window.speechSynthesis.resume();
+      // Resume removed as it can cause stuttering on some browsers
+      // window.speechSynthesis.resume();
 
       // Mandatory delay for browser to clear its internal cancel state
       pendingSpeakRef.current = setTimeout(() => {
-        console.log("Executing speak after 150ms reset delay.");
+        console.log("Executing speak after 250ms reset delay.");
         const utterance = new SpeechSynthesisUtterance(text);
         utteranceRef.current = utterance;
 
@@ -314,12 +315,12 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
         // Apply Speed Preference
         const speedPref = user.preferences?.voiceSpeed || 'Normal';
-        let rate = 1.05; // Normal default
+        let rate = 1.0; // Normal default (was 1.05)
         if (speedPref === 'Slow') rate = 0.85;
         if (speedPref === 'Fast') rate = 1.25;
 
         utterance.rate = rate;
-        utterance.pitch = 1.0; // Reset to natural pitch
+        utterance.pitch = 1.0;
         utterance.volume = 1.0;
 
         utterance.onstart = () => {
@@ -353,7 +354,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
         window.speechSynthesis.speak(utterance);
         pendingSpeakRef.current = null;
-      }, 150); // Increased to 150ms for extra safety
+      }, 250); // Increased to 250ms for extra safety against overlap
     }
   };
 
@@ -364,10 +365,11 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       let textToSpeak = lastMsg.content;
 
       // Prepend welcome message if it's the first question
-      if (interviewerMsgs.length === 1 && !lastSpokenIdRef.current) {
-        const roundName = ROUND_NAMES[roundType || 'product-sense'];
-        textToSpeak = `Hello! I'm your AI interviewer for this session. We'll be focusing on ${roundName}. ${lastMsg.content}`;
-      }
+      // REMOVED: The AI usually introduces itself, and prepending creates a double-intro or potential race condition.
+      // if (interviewerMsgs.length === 1 && !lastSpokenIdRef.current) {
+      //   const roundName = ROUND_NAMES[roundType || 'product-sense'];
+      //   textToSpeak = `Hello! I'm your AI interviewer for this session. We'll be focusing on ${roundName}. ${lastMsg.content}`;
+      // }
 
       lastSpokenIdRef.current = lastMsg.id;
       setIsAIResponding(false);
