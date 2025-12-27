@@ -319,7 +319,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
         if (speedPref === 'Fast') rate = 1.25;
 
         utterance.rate = rate;
-        utterance.pitch = 1.1; // Keep youthful pitch
+        utterance.pitch = 1.0; // Reset to natural pitch
         utterance.volume = 1.0;
 
         utterance.onstart = () => {
