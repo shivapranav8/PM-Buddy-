@@ -79,6 +79,11 @@ export default function OnboardingWelcome({ onNext }: OnboardingWelcomeProps) {
             Start Setup →
           </button>
         </div>
+
+        {/* Footer */}
+        <div className="mt-12 text-center">
+          <p className="text-slate-400">Made by Shiva Pranav</p>
+        </div>
       </div>
     </div>
   );
