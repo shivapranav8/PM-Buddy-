@@ -1,3 +1,5 @@
+import Footer from '../common/Footer';
+
 interface OnboardingWelcomeProps {
   onNext: () => void;
 }
@@ -81,9 +83,7 @@ export default function OnboardingWelcome({ onNext }: OnboardingWelcomeProps) {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 text-center">
-          <p className="text-slate-400">Made by Shiva Pranav</p>
-        </div>
+        <Footer className="mt-12" />
       </div>
     </div>
   );

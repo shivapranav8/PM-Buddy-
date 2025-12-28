@@ -13,7 +13,7 @@ export default function Footer({ className = '' }: FooterProps) {
                     rel="noopener noreferrer"
                     className="text-indigo-400 hover:text-indigo-300 transition-colors font-medium"
                 >
-                    Shiva
+                    Shiva Pranav
                 </a>{' '}
                 ❤️
             </p>

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../contexts/AuthContext';
+import Footer from '../common/Footer';
 
 export default function AuthScreen() {
   const [isLoading, setIsLoading] = useState(false);
@@ -74,11 +75,7 @@ export default function AuthScreen() {
         </div>
 
         {/* Footer */}
-        <div className="mt-8 text-center">
-          <p className="text-slate-400">
-            Made by Shiva Pranav
-          </p>
-        </div>
+        <Footer className="mt-8" />
       </div>
     </div>
   );
