@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { User, Session } from '../../App';
 import { startInterview, sendMessage, subscribeToMessages, endInterview } from '../../lib/firestore';
+import { generateSpeech, getVoiceForAccent, audioCache, VoiceModel } from '../../lib/tts';
 
 const avatarImage = '/interviewer.png';
 
@@ -49,15 +50,15 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
   const [isMicOn, setIsMicOn] = useState(true);
   const [isListening, setIsListening] = useState(false);
   const [avatarState, setAvatarState] = useState<'idle' | 'talking' | 'listening'>('idle');
-  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
-  const [isSpeaking, setIsSpeaking] = useState(false); // Used for visualizer
+  const [isSpeaking, setIsSpeaking] = useState(false);
+  const [isLoadingAudio, setIsLoadingAudio] = useState(false);
+  const [isTranscriptExpanded, setIsTranscriptExpanded] = useState(true);
 
   // Refs
   const transcriptScrollRef = useRef<HTMLDivElement>(null);
   const interviewIdRef = useRef<string | null>(null);
   const recognitionRef = useRef<any>(null);
-  const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
-  const pendingSpeakRef = useRef<NodeJS.Timeout | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenIdRef = useRef<string | null>(null);
   const initialQuestionSetRef = useRef<boolean>(false);
 
@@ -142,34 +143,58 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
     initInterview();
 
-    return () => {
-      if (timeoutId) clearTimeout(timeoutId);
-      window.speechSynthesis.cancel();
-    };
-  }, [roundType, user.id]); // Removed 'voices' dependency to prevent restart
+    // Pre-generate welcome audio for all round types while waiting for first question
+    // This eliminates the delay when the first message arrives
+    const preGenerateWelcomeAudio = async () => {
+      const apiKey = user.preferences?.apiKey;
+      const isVoiceEnabled = user.preferences?.voiceEnabled ?? true;
 
-  // Prime audio on first interaction
-  useEffect(() => {
-    const primeAudio = () => {
-      // Remove listeners IMMEDIATELY to prevent double-triggering
-      window.removeEventListener('click', primeAudio);
-      window.removeEventListener('touchstart', primeAudio);
+      if (!apiKey || !isVoiceEnabled) return;
 
-      if ('speechSynthesis' in window) {
-        // DO NOT cancel here, as it may interrupt a real speak request
-        const u = new SpeechSynthesisUtterance("");
-        u.volume = 0;
-        window.speechSynthesis.speak(u);
-        console.log("Audio primed (silent utterance sent)");
+      const accent = user.preferences?.voiceAccent || 'US English';
+      const voice = getVoiceForAccent(accent);
+      const speedPref = user.preferences?.voiceSpeed || 'Normal';
+      let speed = 1.0;
+      if (speedPref === 'Slow') speed = 0.85;
+      if (speedPref === 'Fast') speed = 1.25;
+
+      // Pre-generate welcome greetings - prioritize current round type first!
+      const currentRoundType = roundType || 'product-sense';
+      const allRoundTypes = ['product-sense', 'execution', 'strategy', 'behavioral', 'estimation', 'root-cause'];
+
+      // Put current round first in the queue
+      const orderedRoundTypes = [currentRoundType, ...allRoundTypes.filter(rt => rt !== currentRoundType)];
+
+      for (const rt of orderedRoundTypes) {
+        const roundName = ROUND_NAMES[rt];
+        const welcomeText = `Hello! I'm your AI interviewer for this session. We'll be focusing on ${roundName}.`;
+
+        // Only generate if not already cached
+        if (!audioCache.get(welcomeText, voice, speed)) {
+          try {
+            console.log(`Pre-generating welcome audio for ${rt}...`);
+            const blob = await generateSpeech({ text: welcomeText, voice, speed, apiKey });
+            audioCache.set(welcomeText, voice, speed, blob);
+            console.log(`✓ Welcome audio cached for ${rt}`);
+          } catch (err) {
+            console.error(`Failed to pre-generate audio for ${rt}:`, err);
+          }
+        }
       }
     };
-    window.addEventListener('click', primeAudio);
-    window.addEventListener('touchstart', primeAudio);
+
+    // Start pre-generation in background (don't await)
+    preGenerateWelcomeAudio();
+
     return () => {
-      window.removeEventListener('click', primeAudio);
-      window.removeEventListener('touchstart', primeAudio);
+      if (timeoutId) clearTimeout(timeoutId);
+      // Stop any playing audio when session ends
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+      }
     };
-  }, []);
+  }, [roundType, user.id]);
 
   // Speech Recognition Setup
   useEffect(() => {
@@ -227,134 +252,189 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
   }, [conversation]);
 
   const handleToggleMic = () => {
-    if (isListening) {
-      recognitionRef.current?.stop();
-      setIsListening(false);
-      setAvatarState('idle');
+    const newMicState = !isMicOn;
+    setIsMicOn(newMicState);
+
+    if (!newMicState) {
+      // Mic turned OFF - stop listening
+      if (recognitionRef.current && isListening) {
+        recognitionRef.current.stop();
+        setIsListening(false);
+        setAvatarState('idle');
+      }
     } else {
-      try {
-        recognitionRef.current?.start();
-      } catch (e) { console.error(e); }
+      // Mic turned ON - start listening if not already
+
+      // Stop AI audio if playing (Interruption)
+      if (audioRef.current) {
+        audioRef.current.pause();
+        audioRef.current = null;
+        setAvatarState('idle');
+        setIsSpeaking(false);
+      }
+
+      if (recognitionRef.current && !isListening) {
+        try {
+          recognitionRef.current.start();
+          setIsListening(true);
+          setAvatarState('listening');
+        } catch (e) {
+          console.error('Failed to start recognition:', e);
+        }
+      }
     }
   };
 
-  // Voice Selection
-  const [selectedVoice, setSelectedVoice] = useState<SpeechSynthesisVoice | null>(null);
-
-  useEffect(() => {
-    const loadVoices = () => {
-      const available = window.speechSynthesis.getVoices();
-      setVoices(available);
-
-      console.log('Available voices:', available.map(v => `${v.name} (${v.lang})`));
-
-      // Get user's accent preference
-      const accent = user.preferences?.voiceAccent || 'US English';
-      let accentCode = 'en-US';
-      if (accent === 'UK English') accentCode = 'en-GB';
-      if (accent === 'Australian English') accentCode = 'en-AU';
-      if (accent === 'Indian English') accentCode = 'en-IN';
-
-      // Find voices matching the preferred accent
-      const accentVoices = available.filter(v => v.lang.startsWith(accentCode));
-
-      // Prioritize male voices for each accent
-      let selectedVoice = null;
-
-      if (accent === 'UK English') {
-        selectedVoice = accentVoices.find(v => v.name.includes('Daniel'));
-      } else if (accent === 'Australian English') {
-        selectedVoice = accentVoices.find(v => v.name.includes('Lee'));
-      } else if (accent === 'Indian English') {
-        selectedVoice = accentVoices.find(v => v.name.includes('Rishi'));
-      } else if (accent === 'US English') {
-        selectedVoice = accentVoices.find(v => v.name.includes('Alex')) ||
-          accentVoices.find(v => v.name.includes('Fred'));
-      }
-
-      // Fallback: First accent voice -> browser default -> first available
-      selectedVoice = selectedVoice || accentVoices[0] || available.find(v => v.default) || available[0] || null;
-
-      console.log('Selected voice:', selectedVoice?.name, selectedVoice?.lang);
-      setSelectedVoice(selectedVoice);
-    };
-
-    loadVoices();
-    if (window.speechSynthesis.onvoiceschanged !== undefined) {
-      window.speechSynthesis.onvoiceschanged = loadVoices;
-    }
-  }, []);
-
-  const speak = (text: string) => {
+  const speak = async (text: string, onComplete?: () => void) => {
     // Check if voice is enabled in preferences (default to true)
     const isVoiceEnabled = user.preferences?.voiceEnabled ?? true;
     if (!text || !isVoiceEnabled) return;
 
-    if ('speechSynthesis' in window) {
-      // Clear any pending speak task
-      if (pendingSpeakRef.current) {
-        clearTimeout(pendingSpeakRef.current);
-      }
+    // Get API key from user preferences
+    const apiKey = user.preferences?.apiKey;
+    if (!apiKey) {
+      console.warn('No API key found, skipping TTS');
+      return;
+    }
 
-      console.log("Speak requested:", text.substring(0, 30) + "...");
+    console.log("Speak requested (OpenAI TTS):", text.substring(0, 30) + "...");
 
-      // Stop any ongoing speech
-      window.speechSynthesis.cancel();
-      // Resume removed as it can cause stuttering on some browsers
-      // window.speechSynthesis.resume();
+    // Stop any currently playing audio
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
 
-      // Mandatory delay for browser to clear its internal cancel state
-      pendingSpeakRef.current = setTimeout(() => {
-        console.log("Executing speak after 250ms reset delay.");
-        const utterance = new SpeechSynthesisUtterance(text);
-        utteranceRef.current = utterance;
+    // Get voice model based on accent preference
+    const accent = user.preferences?.voiceAccent || 'US English';
+    const voice = getVoiceForAccent(accent);
 
-        if (selectedVoice) {
-          utterance.voice = selectedVoice;
-        }
+    // Map speed preference to TTS speed
+    const speedPref = user.preferences?.voiceSpeed || 'Normal';
+    let speed = 1.0;
+    if (speedPref === 'Slow') speed = 0.85;
+    if (speedPref === 'Fast') speed = 1.25;
 
-        // Apply Speed Preference
-        const speedPref = user.preferences?.voiceSpeed || 'Normal';
-        let rate = 1.0; // Normal default (was 1.05)
-        if (speedPref === 'Slow') rate = 0.85;
-        if (speedPref === 'Fast') rate = 1.25;
+    // Check cache first
+    let audioBlob = audioCache.get(text, voice, speed);
 
-        utterance.rate = rate;
-        utterance.pitch = 1.0;
-        utterance.volume = 1.0;
+    if (audioBlob) {
+      // Cached audio - play immediately with no delay!
+      console.log('Using cached audio - instant playback');
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
 
-        utterance.onstart = () => {
-          console.log("Speech started officially");
-          setAvatarState('talking');
-          setIsSpeaking(true);
-        };
+      audio.onloadeddata = () => {
+        setAvatarState('talking');
+        setIsSpeaking(true);
+      };
 
-        utterance.onend = () => {
-          console.log("Speech ended naturally");
-          utteranceRef.current = null;
-          setAvatarState('idle');
-          setIsSpeaking(false);
+      audio.onended = () => {
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setAvatarState('idle');
+        setIsSpeaking(false);
+
+        // Start listening ONLY if mic is ON
+        if (isMicOn) {
           setIsListening(true);
           setAvatarState('listening');
           try {
             recognitionRef.current?.start();
-          } catch (e) { }
-        };
-
-        utterance.onerror = (event) => {
-          if (event.error === 'interrupted' || event.error === 'canceled') {
-            console.log("Speech interrupted or canceled intentionally");
-          } else {
-            console.error("SpeechSynthesisUtterance error", event);
+          } catch (e) {
+            console.log('Recognition already started or unavailable');
           }
-          utteranceRef.current = null;
-          setAvatarState('idle');
-          setIsSpeaking(false);
-        };
+        }
+        onComplete?.();
+      };
 
-        window.speechSynthesis.speak(utterance);
-        pendingSpeakRef.current = null;
-      }, 250); // Increased to 250ms for extra safety against overlap
+      audio.onerror = (error) => {
+        console.error("Audio playback error:", error);
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setAvatarState('idle');
+        setIsSpeaking(false);
+        onComplete?.();
+      };
+
+      await audio.play();
+      return;
+    }
+
+    // Not cached - generate new audio
+    setIsLoadingAudio(true);
+
+    try {
+      console.log(`Generating TTS audio with voice: ${voice}, speed: ${speed}`);
+      audioBlob = await generateSpeech({
+        text,
+        voice,
+        speed,
+        apiKey
+      });
+
+      // Cache for future use
+      audioCache.set(text, voice, speed, audioBlob);
+
+      // Create audio element and play
+      const audioUrl = URL.createObjectURL(audioBlob);
+      const audio = new Audio(audioUrl);
+      audioRef.current = audio;
+
+      audio.onloadeddata = () => {
+        setIsLoadingAudio(false);
+        setAvatarState('talking');
+        setIsSpeaking(true);
+        console.log("Audio loaded, starting playback");
+      };
+
+      audio.onplay = () => {
+        console.log("Audio playback started");
+      };
+
+      audio.onended = () => {
+        console.log("Audio playback ended");
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setAvatarState('idle');
+        setIsSpeaking(false);
+        setIsLoadingAudio(false);
+
+        // Start listening for user response ONLY if mic is ON
+        if (isMicOn) {
+          setIsListening(true);
+          setAvatarState('listening');
+          try {
+            recognitionRef.current?.start();
+          } catch (e) {
+            console.log('Recognition already started or unavailable');
+          }
+        }
+        onComplete?.();
+      };
+
+      audio.onerror = (error) => {
+        console.error("Audio playback error:", error);
+        URL.revokeObjectURL(audioUrl);
+        audioRef.current = null;
+        setAvatarState('idle');
+        setIsSpeaking(false);
+        setIsLoadingAudio(false);
+        onComplete?.();
+      };
+
+      // Start playback
+      await audio.play();
+
+    } catch (error) {
+      console.error("OpenAI TTS error:", error);
+      setIsLoadingAudio(false);
+      setAvatarState('idle');
+      setIsSpeaking(false);
+
+      // Show error to user
+      setApiError(`Voice synthesis failed: ${error instanceof Error ? error.message : 'Unknown error'}. Please check your API key.`);
     }
   };
 
@@ -362,18 +442,29 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
     const lastMsg = conversation[conversation.length - 1];
     if (lastMsg && lastMsg.role === 'interviewer' && lastMsg.id !== lastSpokenIdRef.current) {
       const interviewerMsgs = conversation.filter(m => m.role === 'interviewer');
-      let textToSpeak = lastMsg.content;
+      const isFirstMessage = interviewerMsgs.length === 1 && !lastSpokenIdRef.current;
 
-      // Prepend welcome message if it's the first question
-      // REMOVED: The AI usually introduces itself, and prepending creates a double-intro or potential race condition.
-      // if (interviewerMsgs.length === 1 && !lastSpokenIdRef.current) {
-      //   const roundName = ROUND_NAMES[roundType || 'product-sense'];
-      //   textToSpeak = `Hello! I'm your AI interviewer for this session. We'll be focusing on ${roundName}. ${lastMsg.content}`;
-      // }
-
-      lastSpokenIdRef.current = lastMsg.id;
       setIsAIResponding(false);
-      speak(textToSpeak);
+
+      // If it's the first question, speak welcome greeting first, then the question
+      if (isFirstMessage) {
+        const roundName = ROUND_NAMES[roundType || 'product-sense'];
+        const welcomeGreeting = `Hello! I'm your AI interviewer for this session. We'll be focusing on ${roundName}.`;
+
+        // Speak welcome (instant from cache), then speak question after a brief pause
+        speak(welcomeGreeting, () => {
+          // Pause to ensure welcome finishes before question starts
+          setTimeout(() => {
+            speak(lastMsg.content);
+          }, 300);
+        });
+      } else {
+        // Not the first question, just speak it normally
+        speak(lastMsg.content);
+      }
+
+      // Mark as spoken AFTER we've started speaking
+      lastSpokenIdRef.current = lastMsg.id;
     }
   }, [conversation, roundType]);
 
@@ -394,6 +485,12 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
   };
 
   const handleEndInterview = async () => {
+    // Stop any audio playing
+    if (audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current = null;
+    }
+
     if (interviewIdRef.current) {
       // Mark as completed to trigger backend evaluation
       await endInterview(interviewIdRef.current);
@@ -444,9 +541,6 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
             <>
               <div className="w-16 h-16 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-6" />
               <h2 className="text-white mb-2 font-sans tracking-tight text-2xl font-bold">Preparing your interview...</h2>
-              <p className="text-slate-400 font-sans">
-                Creating a {config.difficulty || 'medium'} difficulty question
-              </p>
             </>
           )}
         </div>
@@ -461,11 +555,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
         {/* Left: Logo + Recording indicator */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 bg-cyan-500 rounded-lg flex items-center justify-center">
-              <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M10 2a8 8 0 100 16 8 8 0 000-16zM8 10a2 2 0 114 0 2 2 0 01-4 0z" />
-              </svg>
-            </div>
+            <img src="/logo.png" alt="PM Buddy" className="w-8 h-8 rounded-lg" />
             <span className="text-white font-semibold">PM Buddy</span>
           </div>
 
@@ -531,7 +621,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
             <img
               src={avatarImage}
               alt="AI Interviewer"
-              className={`max-h-full w-auto object-contain rounded-2xl border-2 border-white/5 shadow-2xl backdrop-blur-sm transition-transform duration-700 ease-in-out ${avatarState === 'talking' ? 'scale-105' : 'scale-100'}`}
+              className={`max-h-full w-auto object-contain rounded-2xl border-2 border-white/5 shadow-2xl backdrop-blur-sm transition-transform duration-700 ease-in-out`}
             />
 
             {/* Waveform overlay when speaking */}
@@ -548,6 +638,16 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
                       }}
                     />
                   ))}
+                </div>
+              </div>
+            )}
+
+            {/* Loading indicator when generating audio */}
+            {isLoadingAudio && (
+              <div className="absolute bottom-20 left-1/2 transform -translate-x-1/2 z-20">
+                <div className="flex items-center gap-2 px-4 py-2 bg-slate-800/90 backdrop-blur-sm rounded-full border border-cyan-500/30">
+                  <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-cyan-400 text-sm font-medium">Thinking...</span>
                 </div>
               </div>
             )}
@@ -572,7 +672,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
               onClick={handleToggleMic}
               className={`w-16 h-16 rounded-full flex items-center justify-center transition-all shadow-lg ${isListening
                 ? 'bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/50 scale-110'
-                : 'bg-cyan-500 hover:bg-cyan-400 text-white shadow-cyan-500/30'
+                : 'bg-slate-700 hover:bg-slate-600 text-white shadow-slate-700/30'
                 }`}
             >
               {isListening ? (
@@ -616,97 +716,114 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
           {/* Header */}
           <div className="h-16 border-b border-slate-700/50 flex items-center justify-between px-5 bg-[#172635]">
-            <h3 className="text-white font-medium">Transcript</h3>
+            <div className="flex items-center gap-2">
+              <h3 className="text-white font-medium">Transcript</h3>
+              <button
+                onClick={() => setIsTranscriptExpanded(!isTranscriptExpanded)}
+                className="text-slate-400 hover:text-cyan-400 transition-colors"
+                title={isTranscriptExpanded ? "Collapse" : "Expand"}
+              >
+                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  {isTranscriptExpanded ? (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  ) : (
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
+                  )}
+                </svg>
+              </button>
+            </div>
             <button className="text-cyan-400 hover:text-cyan-300 transition-colors text-sm">
               Export
             </button>
           </div>
 
           {/* Messages */}
-          <div
-            ref={transcriptScrollRef}
-            className="flex-1 overflow-y-auto px-5 py-4 space-y-4 custom-scrollbar"
-            style={{ minHeight: 0 }}
-          >
-            {/* Welcome Message */}
-            <div className="space-y-2">
-              <div className="flex items-center gap-2">
-                <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
-                  <img src={avatarImage} alt="Interviewer" className="w-full h-full object-cover" />
-                </div>
-                <span className="text-sm text-slate-300">Interviewer</span>
-              </div>
-              <div className="text-sm leading-relaxed text-slate-300 pl-8">
-                Hello! I'm your AI interviewer for this session. We'll be focusing on {ROUND_NAMES[roundType || 'product-sense']}.
-              </div>
-            </div>
-
-            {conversation.map((msg) => (
-              <div key={msg.id} className="space-y-2 animate-fade-in">
-                {/* Label with avatar */}
-                <div className="flex items-center gap-2">
-                  <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 rounded-full border border-slate-700/50">
-                    <div className={`w-1.5 h-1.5 rounded-full ${isMicOn ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
-                    <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
-                      {isMicOn ? 'Mic Active' : 'Mic Muted'}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  {msg.role === 'interviewer' ? (
-                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
-                      <img src={avatarImage} alt="Interviewer" className="w-full h-full object-cover" />
-                    </div>
-                  ) : (
-                    <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-white text-xs font-medium">
-                      Y
-                    </div>
-                  )}
-                  <span className={`text-sm ${msg.role === 'interviewer' ? 'text-slate-300' : 'text-cyan-300'}`}>
-                    {msg.role === 'interviewer' ? 'Interviewer' : 'You'}
-                  </span>
-                </div>
-
-                {/* Message bubble */}
-                <div className={`text-sm leading-relaxed ${msg.role === 'interviewer'
-                  ? 'text-slate-300 pl-8'
-                  : 'text-white bg-[#1E3A52] rounded-lg p-3 ml-8'
-                  }`}>
-                  {msg.content}
-                </div>
-              </div>
-            ))}
-
-            {/* Listening indicator in transcript */}
-            {isListening && (
-              <div className="space-y-2 animate-pulse">
-                <div className="flex items-center gap-2">
-                  <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-white text-xs font-medium">
-                    Y
-                  </div>
-                  <span className="text-sm text-cyan-300">You</span>
-                </div>
-                <div className="text-sm text-slate-400 italic pl-8 font-sans">
-                  {privateNote.trim() ? 'Typing your logic...' : 'Listening to your response...'}
-                </div>
-              </div>
-            )}
-
-            {/* AI generating indicator */}
-            {isAIResponding && (
-              <div className="space-y-2 animate-pulse">
+          {isTranscriptExpanded && (
+            <div
+              ref={transcriptScrollRef}
+              className="flex-1 overflow-y-auto px-5 py-4 space-y-4 custom-scrollbar"
+              style={{ minHeight: 0 }}
+            >
+              {/* Welcome Message */}
+              <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
                     <img src={avatarImage} alt="Interviewer" className="w-full h-full object-cover" />
                   </div>
                   <span className="text-sm text-slate-300">Interviewer</span>
                 </div>
-                <div className="text-sm text-slate-400 italic pl-8">
-                  Thinking...
+                <div className="text-sm leading-relaxed text-slate-300 pl-8">
+                  Hello! I'm your AI interviewer for this session. We'll be focusing on {ROUND_NAMES[roundType || 'product-sense']}.
                 </div>
               </div>
-            )}
-          </div>
+
+              {conversation.map((msg) => (
+                <div key={msg.id} className="space-y-2 animate-fade-in">
+                  {/* Label with avatar */}
+                  <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-1.5 px-3 py-1.5 bg-slate-800/50 rounded-full border border-slate-700/50">
+                      <div className={`w-1.5 h-1.5 rounded-full ${isMicOn ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.5)]' : 'bg-red-500'}`} />
+                      <span className="text-[10px] uppercase tracking-wider font-bold text-slate-400">
+                        {isMicOn ? 'Mic Active' : 'Mic Muted'}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    {msg.role === 'interviewer' ? (
+                      <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
+                        <img src={avatarImage} alt="Interviewer" className="w-full h-full object-cover" />
+                      </div>
+                    ) : (
+                      <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-white text-xs font-medium">
+                        Y
+                      </div>
+                    )}
+                    <span className={`text-sm ${msg.role === 'interviewer' ? 'text-slate-300' : 'text-cyan-300'}`}>
+                      {msg.role === 'interviewer' ? 'Interviewer' : 'You'}
+                    </span>
+                  </div>
+
+                  {/* Message bubble */}
+                  <div className={`text-sm leading-relaxed ${msg.role === 'interviewer'
+                    ? 'text-slate-300 pl-8'
+                    : 'text-white bg-[#1E3A52] rounded-lg p-3 ml-8 whitespace-pre-wrap'
+                    }`}>
+                    {msg.content}
+                  </div>
+                </div>
+              ))}
+
+              {/* Listening indicator in transcript */}
+              {isListening && (
+                <div className="space-y-2 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-cyan-500 flex items-center justify-center text-white text-xs font-medium">
+                      Y
+                    </div>
+                    <span className="text-sm text-cyan-300">You</span>
+                  </div>
+                  <div className="text-sm text-slate-400 italic pl-8 font-sans">
+                    {privateNote.trim() ? 'Typing your logic...' : 'Listening to your response...'}
+                  </div>
+                </div>
+              )}
+
+              {/* AI generating indicator */}
+              {isAIResponding && (
+                <div className="space-y-2 animate-pulse">
+                  <div className="flex items-center gap-2">
+                    <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center overflow-hidden">
+                      <img src={avatarImage} alt="Interviewer" className="w-full h-full object-cover" />
+                    </div>
+                    <span className="text-sm text-slate-300">Interviewer</span>
+                  </div>
+                  <div className="text-sm text-slate-400 italic pl-8">
+                    Thinking...
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Private Note Input (actually sends a message now) */}
           <div className="border-t border-slate-700/50 p-4 bg-[#172635]">

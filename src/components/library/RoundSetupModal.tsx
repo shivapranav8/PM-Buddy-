@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import Footer from '../common/Footer';
 
 interface RoundSetupModalProps {
   round: {
@@ -127,19 +128,21 @@ export default function RoundSetupModal({ round, onClose }: RoundSetupModalProps
           </div>
 
           {/* Footer */}
-          <div className="p-6 border-t border-slate-200 flex gap-3">
-            <button
-              onClick={onClose}
-              className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleStart}
-              className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/30"
-            >
-              Start Interview →
-            </button>
+          <div className="p-6 border-t border-slate-200">
+            <div className="flex gap-3">
+              <button
+                onClick={onClose}
+                className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleStart}
+                className="flex-1 px-6 py-3 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-600/30"
+              >
+                Start Interview →
+              </button>
+            </div>
           </div>
         </div>
       </div>

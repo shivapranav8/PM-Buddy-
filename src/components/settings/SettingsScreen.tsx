@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { User, UserPreferences } from '../../App';
 import Navigation from '../common/Navigation';
+import Footer from '../common/Footer';
 
 interface SettingsScreenProps {
   user: User;
@@ -14,7 +15,7 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
   const navigate = useNavigate();
   const [apiKey, setApiKey] = useState(preferences?.apiKey || '');
   const [voiceSpeed, setVoiceSpeed] = useState(preferences?.voiceSpeed || 'Normal');
-  const [voiceAccent, setVoiceAccent] = useState(preferences?.voiceAccent || 'US English');
+  const [voiceAccent, setVoiceAccent] = useState<'US English' | 'UK English'>(preferences?.voiceAccent === 'UK English' ? 'UK English' : 'US English');
   const [voiceEnabled, setVoiceEnabled] = useState(preferences?.voiceEnabled ?? true);
   const [isSavingApiKey, setIsSavingApiKey] = useState(false);
   const [isSavingPrefs, setIsSavingPrefs] = useState(false);
@@ -219,13 +220,11 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
               <label className="block text-slate-700 mb-2">Interviewer Accent</label>
               <select
                 value={voiceAccent}
-                onChange={(e) => setVoiceAccent(e.target.value as any)}
+                onChange={(e) => setVoiceAccent(e.target.value as 'US English' | 'UK English')}
                 className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
               >
                 <option>US English</option>
                 <option>UK English</option>
-                <option>Australian English</option>
-                <option>Indian English</option>
               </select>
             </div>
 
@@ -274,7 +273,7 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
         </div>
 
         {/* Privacy & Data */}
-        < div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6" >
+        <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
           <h3 className="text-slate-900 mb-4">Privacy & Data</h3>
           <div className="space-y-4">
             <div className="p-4 bg-blue-50 border border-blue-200 rounded-xl">
@@ -298,10 +297,10 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
               Clear All Local Data
             </button>
           </div>
-        </div >
+        </div>
 
         {/* Danger zone */}
-        < div className="bg-white rounded-2xl border-2 border-red-200 p-6" >
+        <div className="bg-white rounded-2xl border-2 border-red-200 p-6">
           <h3 className="text-red-900 mb-4">Danger Zone</h3>
           <p className="text-slate-600 mb-4">
             Once you log out, all your local data will be cleared from this browser.
@@ -312,8 +311,10 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
           >
             Logout
           </button>
-        </div >
-      </div >
-    </div >
+        </div>
+
+        <Footer />
+      </div>
+    </div>
   );
 }

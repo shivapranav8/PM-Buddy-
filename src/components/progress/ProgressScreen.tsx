@@ -5,6 +5,7 @@ import { db } from '../../firebase';
 import { User, Session } from '../../App';
 import Navigation from '../common/Navigation';
 import EmptyState from '../common/EmptyState';
+import Footer from '../common/Footer';
 
 interface ProgressScreenProps {
   user: User;
@@ -266,26 +267,25 @@ export default function ProgressScreen({ user, sessions: propSessions, onLogout 
         {/* Trend line */}
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
           <h3 className="text-slate-900 mb-6">Score Trend (Last 10 Sessions)</h3>
-          <div className="relative h-64">
-            <div className="absolute inset-0 flex items-end justify-between gap-2">
-              {trendData.map((session, index) => {
-                const height = (session.score / 100) * 100;
-                return (
-                  <div key={session.id} className="flex-1 flex flex-col items-center gap-2">
-                    <div className="w-full bg-slate-100 rounded-t-lg relative" style={{ height: '100%' }}>
-                      <div
-                        className={`absolute bottom-0 w-full rounded-t-lg transition-all ${session.score >= 70 ? 'bg-green-500' :
-                          session.score >= 50 ? 'bg-amber-500' :
-                            'bg-red-500'
-                          }`}
-                        style={{ height: `${height}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-slate-500">{index + 1}</span>
+          <div className="h-64 flex items-end justify-between gap-2">
+            {trendData.map((session, index) => {
+              const height = session.score; // Already a percentage (0-100)
+              return (
+                <div key={session.id} className="flex-1 flex flex-col items-center gap-2">
+                  <div className="w-full flex items-end" style={{ height: '240px' }}>
+                    <div
+                      className={`w-full rounded-t-lg transition-all ${session.score >= 70 ? 'bg-green-500' :
+                        session.score >= 50 ? 'bg-amber-500' :
+                          'bg-red-500'
+                        }`}
+                      style={{ height: `${height}%` }}
+                      title={`Session ${index + 1}: ${session.score}%`}
+                    />
                   </div>
-                );
-              })}
-            </div>
+                  <span className="text-xs text-slate-500">{index + 1}</span>
+                </div>
+              );
+            })}
           </div>
         </div>
 
@@ -309,15 +309,7 @@ export default function ProgressScreen({ user, sessions: propSessions, onLogout 
           </div>
         )}
 
-        {/* Export button */}
-        <div className="flex justify-center">
-          <button className="px-6 py-3 bg-slate-100 text-slate-700 rounded-xl hover:bg-slate-200 transition-colors flex items-center gap-2">
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-            </svg>
-            Export Progress Report
-          </button>
-        </div>
+        <Footer />
       </div>
     </div>
   );

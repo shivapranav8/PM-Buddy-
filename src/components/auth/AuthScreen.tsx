@@ -26,11 +26,7 @@ export default function AuthScreen() {
       <div className="max-w-md w-full">
         {/* Logo and branding */}
         <div className="text-center mb-12">
-          <div className="inline-flex items-center justify-center w-16 h-16 bg-indigo-600 rounded-2xl mb-6 shadow-lg">
-            <svg className="w-9 h-9 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-            </svg>
-          </div>
+          <img src="/logo.png" alt="PM Buddy" className="w-16 h-16 mb-6 shadow-lg rounded-2xl" />
           <h1 className="text-slate-900 mb-3">PM Buddy</h1>
           <p className="text-slate-600">
             Practice realistic PM interviews.<br />
@@ -73,14 +69,14 @@ export default function AuthScreen() {
           )}
 
           <p className="mt-6 text-center text-slate-500">
-            By continuing, you agree to our Terms of Service and Privacy Policy. Your data stays on your device.
+            By continuing, you agree to our Terms & Privacy Policy.
           </p>
         </div>
 
         {/* Footer */}
         <div className="mt-8 text-center">
           <p className="text-slate-400">
-            Made for PM aspirants, by PMs
+            Made by Shiva Pranav
           </p>
         </div>
       </div>

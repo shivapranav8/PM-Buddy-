@@ -3,6 +3,7 @@ import { User } from '../../App';
 import Navigation from '../common/Navigation';
 import RoundTile from './RoundTile';
 import RoundSetupModal from './RoundSetupModal';
+import Footer from '../common/Footer';
 
 interface MockLibraryProps {
   user: User;
@@ -86,6 +87,8 @@ export default function MockLibrary({ user, onLogout }: MockLibraryProps) {
             />
           ))}
         </div>
+
+        <Footer />
       </div>
 
       {/* Setup modal */}

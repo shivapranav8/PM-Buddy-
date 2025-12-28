@@ -7,6 +7,7 @@ import Navigation from '../common/Navigation';
 import ReadinessCard from './ReadinessCard';
 import SessionList from './SessionList';
 import EmptyState from '../common/EmptyState';
+import Footer from '../common/Footer';
 
 interface HomeProps {
   user: User;
@@ -157,6 +158,8 @@ export default function Home({ user, sessions: propSessions, onLogout }: HomePro
             </div>
           </div>
         )}
+
+        <Footer />
       </div>
     </div>
   );

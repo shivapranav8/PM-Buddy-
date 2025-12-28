@@ -12,8 +12,7 @@ const ROUND_TYPES = [
   { id: 'metrics', label: 'Metrics', color: 'bg-green-500' },
   { id: 'guesstimates', label: 'Guesstimates', color: 'bg-yellow-500' },
   { id: 'technical', label: 'Product Design', color: 'bg-red-500' },
-  { id: 'strategy', label: 'Product Strategy', color: 'bg-indigo-500' },
-  { id: 'behavioral', label: 'Behavioral', color: 'bg-pink-500' }
+  { id: 'strategy', label: 'Product Strategy', color: 'bg-indigo-500' }
 ];
 
 export default function ReadinessCard({ sessions, overallScore }: ReadinessCardProps) {

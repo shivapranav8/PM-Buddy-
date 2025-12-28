@@ -50,7 +50,7 @@ export interface UserPreferences {
   focusAreas: string[];
   customRound: string;
   voiceSpeed?: 'Slow' | 'Normal' | 'Fast';
-  voiceAccent?: 'US English' | 'UK English' | 'Australian English' | 'Indian English';
+  voiceAccent?: 'US English' | 'UK English';
   voiceEnabled?: boolean;
 }
 

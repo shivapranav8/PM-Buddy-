@@ -18,10 +18,11 @@ try {
 
 const db = admin.firestore();
 
-// Initialize OpenAI
-const openai = new OpenAI({
+// Initialize OpenAI (optional - only used for seeding, not for user requests)
+// User requests use their own API keys fetched from Firebase
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({
     apiKey: process.env.OPENAI_API_KEY,
-});
+}) : null;
 
 async function seedQuestions() {
     console.log('Seeding questions...');
@@ -264,7 +265,8 @@ async function setupInterviewListener(interviewId, userId) {
        - FinTech/EdTech: PhonePe, Stripe, Duolingo, Slack, Discord, Notion, Canva, Zoom
     4. ULTRA-STRICT: If ROUND is PRODUCT_IMPROVEMENT, do NOT ask "Why?". Ask "How would you improve?" or "Redesign?".
     5. ULTRA-STRICT REACTION RULE: If the candidate asks ANY question or makes a data request, you MUST answer it directly and helpfully in your VERY NEXT response.
-    6. PRESENTATION RULE: NEVER use markdown formatting like **bold** or __underline__. Keep the text plain, clean, and conversational for a digital interface. Avoid any special characters or symbols.`;
+    6. PRESENTATION RULE: NEVER use markdown formatting like **bold** or __underline__. Keep the text plain, clean, and conversational for a digital interface. Avoid any special characters or symbols.
+    7. IMMERSION RULE: You are a human interviewer. NEVER explain your internal logic (e.g., "You seem to be asking for a different format"). NEVER mention "RCA format" or "Product Improvement format" explicitly. If the candidate is off-track, just say "Let's focus on..." naturally. Do not debug the conversation.`;
 
     const finalSystemPrompt = `${unifiedSystemPrompt}
     
@@ -809,6 +811,12 @@ Your "rubric_breakdown" array MUST include these exact categories with individua
         }
 
         console.log(`Parsed result: `, JSON.stringify(result, null, 2));
+
+        // Convert score from 0-10 scale to 0-100 scale for display
+        if (result.score !== undefined) {
+            result.score = Math.round(result.score * 10);
+            console.log(`Converted score to 0-100 scale: ${result.score}`);
+        }
 
         // 5. Update Firestore
         console.log(`Updating Firestore for ${interviewId}...`);
