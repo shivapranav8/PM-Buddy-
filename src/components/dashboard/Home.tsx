@@ -79,10 +79,10 @@ export default function Home({ user, sessions: propSessions, onLogout }: HomePro
     : 0;
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navigation user={user} currentPage="home" onLogout={onLogout} />
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 flex-1 w-full flex flex-col">
         {/* Greeting */}
         <div className="mb-8">
           <h1 className="text-slate-900 mb-2">
@@ -159,7 +159,7 @@ export default function Home({ user, sessions: propSessions, onLogout }: HomePro
           </div>
         )}
 
-        <Footer />
+        <Footer className="mt-auto" />
       </div>
     </div>
   );
