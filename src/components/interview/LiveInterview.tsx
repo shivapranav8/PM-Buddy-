@@ -194,7 +194,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.continuous = true; // Keep listening until manually stopped
+      recognition.continuous = true; // Continuous listening while mic is on
       recognition.interimResults = false;
       recognition.lang = 'en-US';
 
@@ -204,7 +204,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       };
 
       recognition.onresult = (event: any) => {
-        // Get the latest result
+        // Accumulate all results
         const lastResult = event.results[event.results.length - 1];
         if (lastResult.isFinal) {
           const text = lastResult[0].transcript;
@@ -221,36 +221,24 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       };
 
       recognition.onend = () => {
-        // Only restart if mic is still supposed to be on and not speaking
-        if (isMicOn && !isSpeaking && !isLoadingAudio) {
-          try {
-            recognition.start();
-          } catch (e) {
-            console.log('Recognition restart failed:', e);
-            setIsListening(false);
-            setAvatarState('idle');
-          }
-        } else {
-          setIsListening(false);
-          if (avatarState === 'listening') {
-            setAvatarState('idle');
-          }
+        setIsListening(false);
+        if (avatarState === 'listening') {
+          setAvatarState('idle');
         }
       };
 
       recognition.onerror = (event: any) => {
         // Don't log or stop on expected errors (aborted, no-speech)
-        // These are normal when AI is speaking or during pauses
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
           console.error("Speech recognition error:", event.error);
-          setIsListening(false);
-          setAvatarState('idle');
         }
+        setIsListening(false);
+        setAvatarState('idle');
       };
 
       recognitionRef.current = recognition;
     }
-  }, [isMicOn, isSpeaking, isLoadingAudio, avatarState]);
+  }, [avatarState]);
 
   // Timer
   useEffect(() => {
@@ -270,19 +258,24 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
     });
   }, [conversation]);
 
-  const handleToggleMic = () => {
+  const handleToggleMic = async () => {
     const newMicState = !isMicOn;
     setIsMicOn(newMicState);
 
     if (!newMicState) {
-      // Mic turned OFF - stop listening
+      // Mic turned OFF - stop listening and send message
       if (recognitionRef.current && isListening) {
         recognitionRef.current.stop();
         setIsListening(false);
         setAvatarState('idle');
       }
+
+      // Auto-send the message if there's text
+      if (privateNote.trim()) {
+        await handleSendMessage();
+      }
     } else {
-      // Mic turned ON - start listening if not already
+      // Mic turned ON - start listening
 
       // Stop AI audio if playing (Interruption)
       if (audioRef.current) {
