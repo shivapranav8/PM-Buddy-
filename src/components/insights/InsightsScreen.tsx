@@ -1,10 +1,12 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { doc, getDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../../firebase';
 import { User, Session } from '../../App';
 import ScoreRing from './ScoreRing';
 import RubricBar from './RubricBar';
+import { trackEvent, AnalyticsEvents } from '../../lib/analytics';
+import FeedbackModal from '../interview/FeedbackModal';
 
 interface InsightsScreenProps {
   user: User;
@@ -24,11 +26,16 @@ const ROUND_LABELS: { [key: string]: string } = {
 export default function InsightsScreen({ user, sessions }: InsightsScreenProps) {
   const { sessionId } = useParams<{ sessionId: string }>();
   const navigate = useNavigate();
+  const trackedRef = useRef(false); // Quick fix for missing Import
 
   const [session, setSession] = useState<Session | null | undefined>(
     sessions.find(s => s.id === sessionId)
   );
   const [loading, setLoading] = useState(!session);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const hasTrackedRef = useState(false); // Using ref-like state for strict mode safety, or just standard ref? Using ref is better.
+  // actually standard useRef is needed
+
 
   useEffect(() => {
     if (!sessionId) return;
@@ -75,6 +82,28 @@ export default function InsightsScreen({ user, sessions }: InsightsScreenProps) 
 
     return () => unsubscribe();
   }, [sessionId]);
+
+  // Analytics & Feedback Trigger
+  useEffect(() => {
+    if (session && session.score !== undefined && !trackedRef.current) {
+      // Only track if session is recent (created within last 10 minutes)
+      // This prevents re-tracking old sessions when viewing history
+      const sessionAgeMs = Date.now() - new Date(session.date).getTime();
+      const isRecent = sessionAgeMs < 10 * 60 * 1000;
+
+      if (isRecent) {
+        trackEvent(AnalyticsEvents.MOCK_COMPLETED, {
+          score: session.score,
+          round_type: session.roundType,
+          qualified: session.score > 70 // Example qualification
+        });
+        trackedRef.current = true;
+
+        // Show feedback modal after a short delay
+        setTimeout(() => setShowFeedback(true), 1500);
+      }
+    }
+  }, [session]);
 
   if (loading) {
     return (
@@ -303,6 +332,14 @@ export default function InsightsScreen({ user, sessions }: InsightsScreenProps) 
           </Link>
         </div>
       </div>
+
+      {sessionId && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          onClose={() => setShowFeedback(false)}
+          interviewId={sessionId}
+        />
+      )}
     </div>
   );
 }

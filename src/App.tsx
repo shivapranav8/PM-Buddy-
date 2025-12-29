@@ -9,6 +9,7 @@ import LiveInterview from './components/interview/LiveInterview';
 import InsightsScreen from './components/insights/InsightsScreen';
 import ProgressScreen from './components/progress/ProgressScreen';
 import SettingsScreen from './components/settings/SettingsScreen';
+import { initAnalytics, identifyUser, trackEvent, AnalyticsEvents } from './lib/analytics';
 
 // Types
 export interface User {
@@ -80,6 +81,7 @@ function AppContent() {
     // Check Firestore for onboarding status if user is logged in
     const checkFirestoreOnboarding = async () => {
       if (user) {
+        identifyUser(user.uid, { email: user.email, name: user.displayName }); // Identify user in PostHog
         try {
           const { doc, getDoc } = await import('firebase/firestore');
           const { db } = await import('./firebase');
@@ -131,6 +133,7 @@ function AppContent() {
     setPreferences(prefs);
     localStorage.setItem('pm-mock-onboarding', 'complete');
     localStorage.setItem('pm-mock-preferences', JSON.stringify(prefs));
+    trackEvent(AnalyticsEvents.SIGNUP_COMPLETED, { method: 'google' });
 
     // Save API Key and Onboarding Status to Firestore
     if (user) {
@@ -164,6 +167,10 @@ function AppContent() {
       }
     }
   };
+
+  useEffect(() => {
+    initAnalytics();
+  }, []);
 
   const handleAddSession = (session: Session) => {
     const newSessions = [session, ...sessions];

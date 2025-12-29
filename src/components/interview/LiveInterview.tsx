@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { User, Session } from '../../App';
 import { startInterview, sendMessage, subscribeToMessages, endInterview } from '../../lib/firestore';
 import { generateSpeech, getVoiceForAccent, audioCache, VoiceModel } from '../../lib/tts';
+import { trackEvent, AnalyticsEvents } from '../../lib/analytics';
 
 const avatarImage = '/interviewer.png';
 
@@ -142,6 +143,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
     };
 
     initInterview();
+    trackEvent(AnalyticsEvents.MOCK_STARTED, { round_type: roundType, difficulty: config.difficulty });
 
     // Pre-generate welcome audio for all round types while waiting for first question
     // This eliminates the delay when the first message arrives
@@ -213,6 +215,13 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       recognition.onresult = (event: any) => {
         const text = event.results[0][0].transcript;
         console.log("Recognized:", text);
+
+        // Track first voice interaction
+        if (!localStorage.getItem('has_spoken_once')) {
+          trackEvent(AnalyticsEvents.FIRST_VOICE_INTERACTION, { timestamp: Date.now() });
+          localStorage.setItem('has_spoken_once', 'true');
+        }
+
         setPrivateNote(prev => (prev ? prev + ' ' + text : text));
       };
 
