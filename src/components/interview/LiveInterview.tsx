@@ -145,8 +145,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
     initInterview();
     trackEvent(AnalyticsEvents.MOCK_STARTED, { round_type: roundType, difficulty: config.difficulty });
 
-    // Pre-generate welcome audio for all round types while waiting for first question
-    // This eliminates the delay when the first message arrives
+    // Pre-generate welcome audio for CURRENT round type only (not all rounds)
     const preGenerateWelcomeAudio = async () => {
       const apiKey = user.preferences?.apiKey;
       const isVoiceEnabled = user.preferences?.voiceEnabled ?? true;
@@ -160,27 +159,19 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       if (speedPref === 'Slow') speed = 0.85;
       if (speedPref === 'Fast') speed = 1.25;
 
-      // Pre-generate welcome greetings - prioritize current round type first!
       const currentRoundType = roundType || 'product-sense';
-      const allRoundTypes = ['product-sense', 'execution', 'strategy', 'behavioral', 'estimation', 'root-cause'];
+      const roundName = ROUND_NAMES[currentRoundType];
+      const welcomeText = `Hello! I'm your AI interviewer for this session. We'll be focusing on ${roundName}.`;
 
-      // Put current round first in the queue
-      const orderedRoundTypes = [currentRoundType, ...allRoundTypes.filter(rt => rt !== currentRoundType)];
-
-      for (const rt of orderedRoundTypes) {
-        const roundName = ROUND_NAMES[rt];
-        const welcomeText = `Hello! I'm your AI interviewer for this session. We'll be focusing on ${roundName}.`;
-
-        // Only generate if not already cached
-        if (!audioCache.get(welcomeText, voice, speed)) {
-          try {
-            console.log(`Pre-generating welcome audio for ${rt}...`);
-            const blob = await generateSpeech({ text: welcomeText, voice, speed, apiKey });
-            audioCache.set(welcomeText, voice, speed, blob);
-            console.log(`✓ Welcome audio cached for ${rt}`);
-          } catch (err) {
-            console.error(`Failed to pre-generate audio for ${rt}:`, err);
-          }
+      // Only generate if not already cached
+      if (!audioCache.get(welcomeText, voice, speed)) {
+        try {
+          console.log(`Pre-generating welcome audio for ${currentRoundType}...`);
+          const blob = await generateSpeech({ text: welcomeText, voice, speed, apiKey });
+          audioCache.set(welcomeText, voice, speed, blob);
+          console.log(`✓ Welcome audio cached for ${currentRoundType}`);
+        } catch (err) {
+          console.error(`Failed to pre-generate audio:`, err);
         }
       }
     };
@@ -203,7 +194,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
     if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
       const SpeechRecognition = (window as any).webkitSpeechRecognition || (window as any).SpeechRecognition;
       const recognition = new SpeechRecognition();
-      recognition.continuous = false;
+      recognition.continuous = true; // Keep listening until manually stopped
       recognition.interimResults = false;
       recognition.lang = 'en-US';
 
@@ -213,34 +204,52 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       };
 
       recognition.onresult = (event: any) => {
-        const text = event.results[0][0].transcript;
-        console.log("Recognized:", text);
+        // Get the latest result
+        const lastResult = event.results[event.results.length - 1];
+        if (lastResult.isFinal) {
+          const text = lastResult[0].transcript;
+          console.log("Recognized:", text);
 
-        // Track first voice interaction
-        if (!localStorage.getItem('has_spoken_once')) {
-          trackEvent(AnalyticsEvents.FIRST_VOICE_INTERACTION, { timestamp: Date.now() });
-          localStorage.setItem('has_spoken_once', 'true');
+          // Track first voice interaction
+          if (!localStorage.getItem('has_spoken_once')) {
+            trackEvent(AnalyticsEvents.FIRST_VOICE_INTERACTION, { timestamp: Date.now() });
+            localStorage.setItem('has_spoken_once', 'true');
+          }
+
+          setPrivateNote(prev => (prev ? prev + ' ' + text : text));
         }
-
-        setPrivateNote(prev => (prev ? prev + ' ' + text : text));
       };
 
       recognition.onend = () => {
-        setIsListening(false);
-        if (avatarState === 'listening') {
-          setAvatarState('idle');
+        // Only restart if mic is still supposed to be on and not speaking
+        if (isMicOn && !isSpeaking && !isLoadingAudio) {
+          try {
+            recognition.start();
+          } catch (e) {
+            console.log('Recognition restart failed:', e);
+            setIsListening(false);
+            setAvatarState('idle');
+          }
+        } else {
+          setIsListening(false);
+          if (avatarState === 'listening') {
+            setAvatarState('idle');
+          }
         }
       };
 
       recognition.onerror = (event: any) => {
         console.error("Speech recognition error", event.error);
-        setIsListening(false);
-        setAvatarState('idle');
+        // Don't stop on 'no-speech' error, just continue
+        if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          setIsListening(false);
+          setAvatarState('idle');
+        }
       };
 
       recognitionRef.current = recognition;
     }
-  }, [avatarState]);
+  }, [isMicOn, isSpeaking, isLoadingAudio, avatarState]);
 
   // Timer
   useEffect(() => {
