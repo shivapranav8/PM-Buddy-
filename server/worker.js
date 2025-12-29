@@ -176,6 +176,8 @@ function startWorker() {
 async function setupInterviewListener(interviewId, userId) {
     // Fetch User's OpenAI Key
     let userOpenAIKey = null;
+    const messagesRef = db.collection('interviews').doc(interviewId).collection('messages');
+    
     try {
         const userSettingsDoc = await db.collection('users').doc(userId).collection('settings').doc('openai').get();
         if (userSettingsDoc.exists) {
@@ -183,10 +185,30 @@ async function setupInterviewListener(interviewId, userId) {
             console.log(`Loaded OpenAI Key for user ${userId}`);
         } else {
             console.warn(`No OpenAI Key found for user ${userId}. Bot will not reply.`);
+            // Send error message to user
+            try {
+                await messagesRef.add({
+                    sender: 'ai',
+                    text: "Error: OpenAI API Key not configured. Please set your API key in settings.",
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {
+                console.error('Failed to send error message:', err);
+            }
             return;
         }
     } catch (error) {
         console.error(`Error fetching OpenAI Key for user ${userId}:`, error);
+        // Send error message to user
+        try {
+            await messagesRef.add({
+                sender: 'ai',
+                text: "Error: Failed to load OpenAI API Key. Please check your settings.",
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        } catch (err) {
+            console.error('Failed to send error message:', err);
+        }
         return;
     }
 
