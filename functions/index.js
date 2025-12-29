@@ -558,25 +558,116 @@ exports.onInterviewUpdated = functions.firestore
                     rubricContent = openAILogic.rubrics[backendRound][backendDifficulty].content;
                 }
 
-                const systemPrompt = `You are a senior PM Interview evaluator. Be harsh but fair.`;
+                const systemPrompt = `You are a HARSH senior Product Management Interview Bar Raiser at Google / Meta. 
+You have extremely high standards and rarely give scores above 70%.
+You are evaluating a CANDIDATE's performance in a mock interview.
+
+CRITICAL RULES:
+1. ONLY evaluate the CANDIDATE's responses (marked as "user" in transcript)
+2. DO NOT evaluate the interviewer's questions or follow-ups
+3. Be HARSH - most candidates should score 40-60%. Only exceptional answers get 70+%.
+4. Penalize heavily for: vague answers, missing structure, no data requests, jumping to solutions
+5. A perfect answer (90-100%) is extremely rare
+
+RCA ROUND SPECIFICS:
+- For HARD difficulty RCA, the "actual_root_cause" MUST be systemic and multi-layered.
+- IF the session difficulty is HARD, ensure the "actual_root_cause" output reflects this complexity.`;
 
                 const userPrompt = `
-                Round: ${backendRound}
-                Difficulty: ${backendDifficulty}
+                Context:
+                - Round: ${backendRound}
+                - Difficulty: ${backendDifficulty}
                 
-                Rubric: ${rubricContent}
+                Rubric / Assessment Pointers:
+                ${rubricContent}
                 
-                Transcript:
+                Transcript (evaluate ONLY the "user" messages, NOT the "assistant" messages):
                 ${transcript}
                 
-                Evaluate ONLY the candidate's (user) responses. Return JSON:
+                ---
+                TASK:
+                Evaluate ONLY THE CANDIDATE's responses (user messages) based on the Rubric.
+                Do NOT give credit for anything the interviewer (assistant) said or hinted at.
+                Provide the output in valid JSON format with the following structure:
                 {
-                    "score": <0-10>,
-                    "summary": "<2-3 sentences>",
-                    "strengths": ["<point 1>", ...],
-                    "improvements": ["<point 1>", ...],
-                    "scores": {"<Category>": <0-100>, ...}
-                }`;
+                    "score": <number 0-10>,
+                    "summary": "<2-3 sentences summary>",
+                    "strengths": ["<point 1>", "<point 2>", ...],
+                    "improvements": ["<point 1>", "<point 2>", ...],
+                    "scores": {
+                        "<Rubric Category 1>": <percentage 0-100>,
+                        "<Rubric Category 2>": <percentage 0-100>,
+                        ...
+                    },
+                    "actual_root_cause": "<1-2 sentences outlining the TRUE root cause that should have been discovered>",
+                    "rubric_breakdown": [
+                        { "category": "<Category Name from Rubric>", "score": <0-5>, "feedback": "<Specific feedback>" },
+                        ...
+                    ]
+                }
+                ${backendRound === 'RCA' ? `
+CRITICAL FOR RCA:
+Your "scores" object MUST include these exact keys with percentage values (0-100):
+{
+  "Problem Framing": <0-100>,
+  "MECE Thinking": <0-100>,
+  "Structure Thinking": <0-100>,
+  "Prioritization & Root Cause": <0-100>,
+  "Solution Quality": <0-100>
+}
+
+Your "rubric_breakdown" array MUST include these exact categories with individual scores (0-5):
+1. { "category": "Problem Framing", "score": <0-5>, "feedback": "..." }
+2. { "category": "MECE Thinking", "score": <0-5>, "feedback": "..." }
+3. { "category": "Structure Thinking", "score": <0-5>, "feedback": "..." }
+4. { "category": "Prioritization & Root Cause", "score": <0-5>, "feedback": "..." }
+5. { "category": "Solution Quality", "score": <0-5>, "feedback": "..." }
+` : ''}
+                ${backendRound === 'PRODUCT_IMPROVEMENT' ? `
+CRITICAL FOR PRODUCT_IMPROVEMENT:
+Your "scores" object MUST include these exact keys with percentage values (0-100):
+{
+  "Product Insight": <0-100>,
+  "User Empathy": <0-100>,
+  "Problem Framing": <0-100>,
+  "Solution Creativity": <0-100>,
+  "Design Judgment": <0-100>
+}
+
+Your "rubric_breakdown" array MUST include these exact categories with individual scores (0-5):
+1. { "category": "Product Insight", "score": <0-5>, "feedback": "..." }
+2. { "category": "User Empathy", "score": <0-5>, "feedback": "..." }
+3. { "category": "Problem Framing", "score": <0-5>, "feedback": "..." }
+4. { "category": "Solution Creativity", "score": <0-5>, "feedback": "..." }
+5. { "category": "Design Judgment", "score": <0-5>, "feedback": "..." }
+` : ''}
+                ${backendRound === 'PRODUCT_STRATEGY' ? `
+CRITICAL FOR PRODUCT_STRATEGY:
+Your "scores" object MUST include these exact keys with percentage values (0-100):
+{
+  "Strategic Framing": <0-100>,
+  "Systems Thinking": <0-100>,
+  "First-Principles Reasoning": <0-100>,
+  "Strategic Options": <0-100>,
+  "Strategic Choice & Prioritization": <0-100>,
+  "Long-Term Vision": <0-100>,
+  "Risks & Trade-offs": <0-100>,
+  "Metrics & Success Criteria": <0-100>,
+  "Communication & Leadership": <0-100>
+}
+
+Your "rubric_breakdown" array MUST include these exact categories with individual scores (0-5):
+1. { "category": "Strategic Framing", "score": <0-5>, "feedback": "..." }
+2. { "category": "Systems Thinking", "score": <0-5>, "feedback": "..." }
+3. { "category": "First-Principles Reasoning", "score": <0-5>, "feedback": "..." }
+4. { "category": "Strategic Options", "score": <0-5>, "feedback": "..." }
+5. { "category": "Strategic Choice & Prioritization", "score": <0-5>, "feedback": "..." }
+6. { "category": "Long-Term Vision", "score": <0-5>, "feedback": "..." }
+7. { "category": "Risks & Trade-offs", "score": <0-5>, "feedback": "..." }
+8. { "category": "Metrics & Success Criteria", "score": <0-5>, "feedback": "..." }
+9. { "category": "Communication & Leadership", "score": <0-5>, "feedback": "..." }
+` : ''}
+                `;
 
                 const completion = await userOpenAI.chat.completions.create({
                     messages: [
