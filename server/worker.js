@@ -471,8 +471,16 @@ async function setupInterviewListener(interviewId, userId) {
 
         } catch (error) {
             console.error('Error generating first question:', error);
-            // Fallback to strict "First Question" from list if error (safe default)
-            // ... existing error handler or retry logic
+            // Send error message to user
+            try {
+                await messagesRef.add({
+                    sender: 'ai',
+                    text: `Error: ${error.message || 'Failed to generate first question. Please check your OpenAI API key and try again.'}`,
+                    timestamp: admin.firestore.FieldValue.serverTimestamp()
+                });
+            } catch (err) {
+                console.error('Failed to send error message:', err);
+            }
         }
     }
 
@@ -482,11 +490,16 @@ async function setupInterviewListener(interviewId, userId) {
         .onSnapshot(async snapshot => {
             if (snapshot.empty) return;
 
+            // Get the last message
             const lastDoc = snapshot.docs[snapshot.docs.length - 1];
+            if (!lastDoc) return;
+            
             const lastMessage = lastDoc.data();
+            if (!lastMessage || !lastMessage.sender) return;
 
+            // Only process if the last message is from the user
             if (lastMessage.sender === 'user') {
-                console.log(`Processing message for ${interviewId}: ${lastMessage.text} `);
+                console.log(`Processing message for ${interviewId}: ${lastMessage.text}`);
 
                 // Construct conversation history - INCLUDE EVERYTHING
                 const history = snapshot.docs.map(doc => ({
