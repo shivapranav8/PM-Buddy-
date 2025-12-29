@@ -287,11 +287,15 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
       if (recognitionRef.current && !isListening) {
         try {
-          recognitionRef.current.start();
+          // Set UI state BEFORE starting recognition for immediate visual feedback
           setIsListening(true);
           setAvatarState('listening');
+          recognitionRef.current.start();
         } catch (e) {
           console.error('Failed to start recognition:', e);
+          // Reset state if start fails
+          setIsListening(false);
+          setAvatarState('idle');
         }
       }
     }
