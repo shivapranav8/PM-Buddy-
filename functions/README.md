@@ -57,3 +57,4 @@ To migrate:
 2. Stop any running local workers
 3. The application will now use Cloud Functions automatically
 
+

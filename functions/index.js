@@ -1,5 +1,6 @@
 const admin = require('firebase-admin');
-const functions = require('firebase-functions');
+const { onDocumentCreated, onDocumentUpdated, onDocumentWritten } = require('firebase-functions/v2/firestore');
+const { defineSecret } = require('firebase-functions/params');
 const OpenAI = require('openai');
 const openAILogic = require('./Open AI Logic.json');
 
@@ -7,18 +8,12 @@ const openAILogic = require('./Open AI Logic.json');
 admin.initializeApp();
 const db = admin.firestore();
 
-// Helper function to get user's OpenAI key
-async function getUserOpenAIKey(userId) {
-    try {
-        const userSettingsDoc = await db.collection('users').doc(userId).collection('settings').doc('openai').get();
-        if (userSettingsDoc.exists) {
-            return userSettingsDoc.data().apiKey;
-        }
-        return null;
-    } catch (error) {
-        console.error(`Error fetching OpenAI Key for user ${userId}:`, error);
-        return null;
-    }
+// Define secret from Secret Manager
+const OPENAI_API_KEY = defineSecret('OPENAI_API_KEY');
+
+// Helper function to get OpenAI client (using shared secret)
+function getOpenAIClient() {
+    return new OpenAI({ apiKey: OPENAI_API_KEY.value() });
 }
 
 // Helper function to get interview details and build system prompt
@@ -144,19 +139,7 @@ async function generateFirstQuestion(interviewId, userId, interviewRound, interv
 
     console.log(`Interview ${interviewId} has no messages. Processing first question for ${backendRound}...`);
 
-    const userOpenAIKey = await getUserOpenAIKey(userId);
-    if (!userOpenAIKey) {
-        console.warn(`No OpenAI Key found for user ${userId}. Cannot generate first question.`);
-        // Send error message to user
-        await messagesRef.add({
-            sender: 'ai',
-            text: "Error: OpenAI API Key not configured. Please set your API key in settings.",
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
-        return;
-    }
-
-    const userOpenAI = new OpenAI({ apiKey: userOpenAIKey });
+    const userOpenAI = getOpenAIClient();
 
     try {
         // 1. Parse Practice Questions from Rubric
@@ -302,18 +285,7 @@ async function generateFirstQuestion(interviewId, userId, interviewRound, interv
 async function processUserMessage(interviewId, userId, messageText) {
     console.log(`Processing message for ${interviewId}: ${messageText}`);
 
-    const userOpenAIKey = await getUserOpenAIKey(userId);
-    if (!userOpenAIKey) {
-        console.warn(`No OpenAI Key found for user ${userId}. Cannot reply.`);
-        await db.collection('interviews').doc(interviewId).collection('messages').add({
-            sender: 'ai',
-            text: "Error: OpenAI API Key not configured. Please set your API key in settings.",
-            timestamp: admin.firestore.FieldValue.serverTimestamp()
-        });
-        return;
-    }
-
-    const userOpenAI = new OpenAI({ apiKey: userOpenAIKey });
+    const userOpenAI = getOpenAIClient();
     const { finalSystemPrompt } = await buildSystemPrompt(interviewId, userId);
 
     // Get conversation history
@@ -370,13 +342,7 @@ async function generateInsights(interviewId, userId) {
     console.log(`User ID: ${userId}`);
     console.log(`========================================`);
 
-    const userOpenAIKey = await getUserOpenAIKey(userId);
-    if (!userOpenAIKey) {
-        console.error(`No OpenAI Key found for user ${userId}. Cannot evaluate.`);
-        return;
-    }
-
-    const userOpenAI = new OpenAI({ apiKey: userOpenAIKey });
+    const userOpenAI = getOpenAIClient();
 
     // Get Interview Details & Transcript
     const interviewDoc = await db.collection('interviews').doc(interviewId).get();
@@ -627,13 +593,17 @@ Your "rubric_breakdown" array MUST include these exact categories with individua
 }
 
 // Cloud Function: Trigger when interview is created with status 'active'
-exports.onInterviewCreated = functions
-    .runWith({ timeoutSeconds: 540, memory: '512MB' })
-    .firestore
-    .document('interviews/{interviewId}')
-    .onCreate(async (snap, context) => {
+exports.onInterviewCreated = onDocumentCreated(
+    {
+        document: 'interviews/{interviewId}',
+        secrets: [OPENAI_API_KEY],
+    },
+    async (event) => {
+        const snap = event.data;
+        if (!snap) return;
+        
+        const interviewId = event.params.interviewId;
         const interviewData = snap.data();
-        const interviewId = context.params.interviewId;
 
         // Only process if status is 'active'
         if (interviewData.status === 'active') {
@@ -664,17 +634,19 @@ exports.onInterviewCreated = functions
 
             await generateFirstQuestion(interviewId, userId, interviewRound, interviewDifficulty, backendRound, rubricContent);
         }
-    });
+    }
+);
 
 // Cloud Function: Trigger when interview status changes
-exports.onInterviewUpdated = functions
-    .runWith({ timeoutSeconds: 540, memory: '512MB' })
-    .firestore
-    .document('interviews/{interviewId}')
-    .onUpdate(async (change, context) => {
-        const before = change.before.data();
-        const after = change.after.data();
-        const interviewId = context.params.interviewId;
+exports.onInterviewUpdated = onDocumentUpdated(
+    {
+        document: 'interviews/{interviewId}',
+        secrets: [OPENAI_API_KEY],
+    },
+    async (event) => {
+        const before = event.data.before.data();
+        const after = event.data.after.data();
+        const interviewId = event.params.interviewId;
 
         // Process if status changed to 'active' (from non-active state)
         if (before.status !== 'active' && after.status === 'active') {
@@ -711,16 +683,18 @@ exports.onInterviewUpdated = functions
             const userId = after.userId;
             await generateInsights(interviewId, userId);
         }
-    });
+    }
+);
 
 // Cloud Function: Trigger when a new message is created
-exports.onMessageCreated = functions
-    .runWith({ timeoutSeconds: 540, memory: '512MB' })
-    .firestore
-    .document('interviews/{interviewId}/messages/{messageId}')
-    .onCreate(async (snap, context) => {
-        const messageData = snap.data();
-        const interviewId = context.params.interviewId;
+exports.onMessageCreated = onDocumentCreated(
+    {
+        document: 'interviews/{interviewId}/messages/{messageId}',
+        secrets: [OPENAI_API_KEY],
+    },
+    async (event) => {
+        const messageData = event.data.data();
+        const interviewId = event.params.interviewId;
 
         // Only process user messages
         if (messageData.sender !== 'user') {
@@ -740,5 +714,6 @@ exports.onMessageCreated = functions
 
         const userId = interviewData.userId;
         await processUserMessage(interviewId, userId, messageData.text);
-    });
+    }
+);
 
