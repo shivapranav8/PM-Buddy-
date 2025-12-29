@@ -131,7 +131,7 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
         <div className="bg-white rounded-2xl border border-slate-200 p-6 mb-6">
           <h3 className="text-slate-900 mb-4">OpenAI API Key</h3>
           <p className="text-slate-600 mb-4">
-            Your API key is stored securely on your device and used only for generating interview questions and feedback.
+            Your API key is encrypted and stored securely on our servers. It is only used for generating interview questions and feedback.
           </p>
 
           <div className="mb-4">

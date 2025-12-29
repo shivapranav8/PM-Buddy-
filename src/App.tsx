@@ -10,6 +10,7 @@ import InsightsScreen from './components/insights/InsightsScreen';
 import ProgressScreen from './components/progress/ProgressScreen';
 import SettingsScreen from './components/settings/SettingsScreen';
 import { initAnalytics, identifyUser, trackEvent, AnalyticsEvents } from './lib/analytics';
+import { encryptAndStoreApiKey, getApiKeyStatus, deleteApiKey } from './lib/api-client';
 
 // Types
 export interface User {
@@ -45,7 +46,8 @@ export interface TimelineEvent {
 }
 
 export interface UserPreferences {
-  apiKey: string;
+  apiKey: string; // Note: This is only used locally, actual key is encrypted on server
+  hasApiKey?: boolean; // Indicates if user has stored an API key
   targetCompanies: string[];
   level: string;
   focusAreas: string[];
@@ -141,12 +143,15 @@ function AppContent() {
         const { doc, setDoc } = await import('firebase/firestore');
         const { db } = await import('./firebase');
 
-        // Save settings
+        // Save API Key via encrypted API endpoint
         if (prefs.apiKey) {
-          await setDoc(doc(db, 'users', user.uid, 'settings', 'openai'), {
-            apiKey: prefs.apiKey,
-            updatedAt: new Date().toISOString()
-          });
+          try {
+            await encryptAndStoreApiKey(prefs.apiKey);
+            console.log('API key encrypted and stored via API');
+          } catch (apiError) {
+            console.error('Failed to encrypt API key:', apiError);
+            // Continue with onboarding even if encryption fails
+          }
         }
 
         // Save onboarding status
@@ -198,14 +203,24 @@ function AppContent() {
         const { doc, setDoc } = await import('firebase/firestore');
         const { db } = await import('./firebase');
 
-        // Save API Key to settings subcollection
+        // Save API Key via encrypted API endpoint
         if (prefs.apiKey) {
-          console.log('Attempting to save API key to Firestore for user:', user.uid);
-          await setDoc(doc(db, 'users', user.uid, 'settings', 'openai'), {
-            apiKey: prefs.apiKey,
-            updatedAt: new Date().toISOString()
-          }, { merge: true });
-          console.log('API Key updated in Firestore successfully');
+          console.log('Attempting to encrypt API key via server for user:', user.uid);
+          try {
+            await encryptAndStoreApiKey(prefs.apiKey);
+            console.log('API Key encrypted and stored successfully');
+          } catch (apiError) {
+            console.error('Failed to encrypt API key via server:', apiError);
+            throw apiError;
+          }
+        } else if (prefs.apiKey === '') {
+          // User is removing the API key
+          try {
+            await deleteApiKey();
+            console.log('API Key deleted successfully');
+          } catch (apiError) {
+            console.error('Failed to delete API key:', apiError);
+          }
         }
 
         // Save other preferences to user document

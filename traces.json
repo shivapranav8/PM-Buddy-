@@ -1,0 +1,316 @@
+[
+  {
+    "interviewId": "fbriZJnh0qe9xFQ50pES",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Ola's driver acceptance rate dropped by 20%.",
+        "timestamp": "2025-12-28T07:38:42.330Z"
+      },
+      {
+        "sender": "user",
+        "text": "is a sudden trip or gradual Dip",
+        "timestamp": "2025-12-28T07:39:05.297Z"
+      },
+      {
+        "sender": "ai",
+        "text": "It was a gradual dip over the past two months.",
+        "timestamp": "2025-12-28T07:39:06.588Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "b159KzGkrMsGL7LVRh5i",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "You mentioned you wanted a Root Cause Analysis question, but it seems like your request is leaning towards a PRODUCT_IMPROVEMENT format. Let's stick to the RCA format: \n\nYouTube's ad click-through rate fell by 20%.",
+        "timestamp": "2025-12-28T07:36:05.074Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "cXZMH9HjSSxQeTyicF3L",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "BookMyShow's advance booking rate decreased by 17%",
+        "timestamp": "2025-12-28T07:32:46.915Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "BU7JbzgLCBlqheBUIgrF",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Grofers' basket size dropped by 14%.",
+        "timestamp": "2025-12-28T07:17:08.827Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "fXrLcCdFCEfTvO6IxK8t",
+    "roundType": "rca",
+    "difficulty": "EASY",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Swiggy orders dropped by 30% specifically in Bangalore during the rainstorm yesterday",
+        "timestamp": "2025-12-28T07:15:19.625Z"
+      },
+      {
+        "sender": "user",
+        "text": "as you says because of the rain storm the order is dropped",
+        "timestamp": "2025-12-28T07:15:56.152Z"
+      },
+      {
+        "sender": "ai",
+        "text": "The rainstorm is one possible factor, but it's important to thoroughly investigate other potential causes. Are there any specific questions you'd like to ask to gather more details about the situation?",
+        "timestamp": "2025-12-28T07:15:57.452Z"
+      },
+      {
+        "sender": "user",
+        "text": "romantic man was the rain doing and when is swiggy speakers",
+        "timestamp": "2025-12-28T07:16:25.553Z"
+      },
+      {
+        "sender": "ai",
+        "text": "The rainstorm in Bangalore occurred yesterday and it was quite heavy, affecting various parts of the city. Swiggy operates throughout India, focusing on food deliveries with a strong presence in major cities like Bangalore. If you have more specific questions about Swiggy's operations or the impact of the rain, feel free to ask.",
+        "timestamp": "2025-12-28T07:16:27.251Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "ls5chWr8fjQbWcNSZ0N4",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Microsoft Teams' user retention rate dropped by 18%.",
+        "timestamp": "2025-12-28T06:49:39.150Z"
+      },
+      {
+        "sender": "user",
+        "text": "what's the sudden or gradual and which records all globe or specific region",
+        "timestamp": "2025-12-28T06:50:19.064Z"
+      },
+      {
+        "sender": "ai",
+        "text": "The drop in Microsoft Teams' user retention rate occurred suddenly over the past two weeks and is evident globally, rather than being specific to any one region.",
+        "timestamp": "2025-12-28T06:50:20.575Z"
+      },
+      {
+        "sender": "user",
+        "text": "and what do we mean by user retention rate here can you clarify me the metric here",
+        "timestamp": "2025-12-28T06:51:32.135Z"
+      },
+      {
+        "sender": "ai",
+        "text": "Certainly! In this context, the user retention rate refers to the percentage of users who continue to use Microsoft Teams over a specific period of time after their initial usage. It typically measures how often users return to the platform after first using it, indicating the service's ability to retain users over time. Specifically, the sudden drop suggests that fewer users are continuing to use Teams compared to previous weeks.",
+        "timestamp": "2025-12-28T06:51:33.802Z"
+      },
+      {
+        "sender": "user",
+        "text": "and by user retention rate do we mean the year the payment process to the people try the trial and then they don't retain or people who have the subscription they don't use it again",
+        "timestamp": "2025-12-28T06:52:40.477Z"
+      },
+      {
+        "sender": "ai",
+        "text": "In this case, the user retention rate refers to users who have an active subscription or access to Microsoft Teams, whether through a paid plan or as part of a trial, and continue to actively use the service. It does not specifically pertain to the payment process but rather focuses on users who have tried the platform and continue to use it over time. The metric reflects users who, after having access to the service, do not return to use it within the retention measurement period.",
+        "timestamp": "2025-12-28T06:52:42.247Z"
+      },
+      {
+        "sender": "user",
+        "text": "  where do we see the dip in the UI for the retention dropped is it in the login page or is it when you send the text or is it when we start a meeting schedule meeting where do we exactly see it in the",
+        "timestamp": "2025-12-28T06:53:43.890Z"
+      },
+      {
+        "sender": "ai",
+        "text": "The dip in user retention appears to be most significant around the stage when users attempt to start or join scheduled meetings. The data indicates that there is a noticeable drop-off in user activity at this point, which could point to potential issues or user frustrations related to the meeting interface or functionality.",
+        "timestamp": "2025-12-28T06:53:46.602Z"
+      },
+      {
+        "sender": "user",
+        "text": "so assume the issue is that people when they try to login they have a problem in the UI and then they leave the meeting attend the create a meeting someone else so it find the root cause here and fix the bug here",
+        "timestamp": "2025-12-28T06:54:30.380Z"
+      },
+      {
+        "sender": "ai",
+        "text": "If the issue is occurring when users attempt to log in and it's affecting their ability to start or join meetings, it might suggest a problem with the login process or interface that could be causing frustration or difficulty. \n\nHere’s a step-by-step approach to diagnosing and addressing the root cause:\n\n1. **Analyze Login Data**: Determine if there's an uptick in login failures or prolonged login times. Check for patterns related to specific devices, browsers, or network conditions.\n\n2. **User Feedback**: Review user feedback or support tickets for mentions of login issues during the period where retention dropped.\n\n3. **Technical Audit**: Conduct a thorough review of recent changes in the login system. This includes code changes, server configurations, or updates that might coincide with the retention drop.\n\n4. **Usability Testing**: Run usability tests with current users to observe any friction points in the login process. This might reveal UI issues or areas that are not user-friendly.\n\n5. **A/B Testing**: Implement A/B tests for different login process variations to identify if simplifying or adjusting certain elements improves retention rates.\n\nOnce the specific cause is identified, solutions could include:\n- Fixing any technical bugs in the login process.\n- Simplifying authentication methods or offering one-click login options.\n- Enhancing the clarity and user guidance during the login phase.\n\nBy addressing the login UI issue, the expectation is to see an improvement in user retention as it will enable users to access meetings more successfully and continue using the platform.",
+        "timestamp": "2025-12-28T06:54:34.575Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "cTxmADUAarZsER0NH6zd",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": []
+  },
+  {
+    "interviewId": "RMFjrE1I1JzJckmLv1vR",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Spotify's song recommendation accuracy decreased by 20%.",
+        "timestamp": "2025-12-28T06:40:50.576Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "dxFxuWUj6HeSjyoZjStv",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Spotify's playlist recommendation accuracy dropped by 17%.",
+        "timestamp": "2025-12-28T06:40:50.120Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "6QVekQw8tZU17WYjQA6C",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Uber's driver retention rate decreased by 22%.",
+        "timestamp": "2025-12-28T06:40:50.002Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "SuebXNNZTIa81YV8QVws",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Meta's Reels engagement rate fell by 20%.",
+        "timestamp": "2025-12-28T06:40:50.060Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "mqFEYlpFtI7ECEOv2qE5",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Discord's voice channel engagement rate decreased by 20%.",
+        "timestamp": "2025-12-28T06:40:50.573Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "mU3q1e6iFPRHwgvW4Qkl",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Uber's driver onboarding rate decreased by 24%",
+        "timestamp": "2025-12-28T06:40:50.000Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "8HJdgFU8k64DgG2Ovmlo",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Rapido's driver onboarding rate decreased by 24%",
+        "timestamp": "2025-12-28T06:40:50.055Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "U6IqaZGoJUjMSaA7tvBe",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Spotify's user playlist creation rate dropped by 20%.",
+        "timestamp": "2025-12-28T06:40:50.564Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "41hZ342zWIquoo2YwIeD",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Google Photos' image editing tool usage dropped by 22%.",
+        "timestamp": "2025-12-28T06:40:50.183Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "QvT1FTGMAb613A1Jrhtd",
+    "roundType": "rca",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "Ola's driver acceptance rate dropped by 20%.",
+        "timestamp": "2025-12-28T06:40:50.581Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "OEEG6KDrviID6jYMr5g0",
+    "roundType": "product-sense",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "How would you improve Swiggy?",
+        "timestamp": "2025-12-27T23:08:41.297Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "GFI4WJTkytCz4xm5LB4v",
+    "roundType": "product-sense",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "How would you improve LinkedIn?",
+        "timestamp": "2025-12-27T22:56:49.174Z"
+      }
+    ]
+  },
+  {
+    "interviewId": "vgMfNU7OONX4JwKuXth0",
+    "roundType": "product-sense",
+    "difficulty": "MEDIUM",
+    "messages": [
+      {
+        "sender": "ai",
+        "text": "How would you improve TikTok?",
+        "timestamp": "2025-12-27T22:56:31.460Z"
+      }
+    ]
+  }
+]

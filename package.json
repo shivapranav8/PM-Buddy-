@@ -64,7 +64,6 @@
       },
       "scripts": {
             "dev": "vite",
-            "build": "vite build",
-            "validate": "node validate-deployment.js"
+            "build": "vite build"
       }
 }

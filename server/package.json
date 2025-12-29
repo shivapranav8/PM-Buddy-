@@ -5,6 +5,8 @@
     "main": "worker.js",
     "scripts": {
         "start": "node worker.js",
+        "api": "node api.js",
+        "start:all": "node api.js & node worker.js",
         "seed": "node worker.js --seed"
     },
     "dependencies": {
@@ -12,6 +14,8 @@
         "openai": "^4.28.0",
         "cheerio": "^1.0.0-rc.12",
         "dotenv": "^16.4.5",
-        "axios": "^1.6.7"
+        "axios": "^1.6.7",
+        "express": "^4.18.2",
+        "cors": "^2.8.5"
     }
 }

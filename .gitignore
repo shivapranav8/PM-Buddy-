@@ -17,6 +17,4 @@ build
 server/node_modules
 server/.env
 server/serviceAccountKey.json
-functions/node_modules
-functions/.env
 *.json.backup
