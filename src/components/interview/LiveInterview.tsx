@@ -62,6 +62,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const lastSpokenIdRef = useRef<string | null>(null);
   const initialQuestionSetRef = useRef<boolean>(false);
+  const isSendingRef = useRef<boolean>(false); // Prevent double-sends
 
   // Load config
   const config = JSON.parse(sessionStorage.getItem('interview-config') || '{}');
@@ -315,10 +316,14 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
     console.log("Speak requested (OpenAI TTS):", text.substring(0, 30) + "...");
 
-    // Stop any currently playing audio
+    // CRITICAL: Stop any currently playing audio to prevent overlap
     if (audioRef.current) {
+      console.log('Stopping previous audio to prevent overlap');
       audioRef.current.pause();
+      audioRef.current.currentTime = 0;
       audioRef.current = null;
+      setIsSpeaking(false);
+      setAvatarState('idle');
     }
 
     // Get voice model based on accent preference
@@ -487,15 +492,25 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
   const handleSendMessage = async () => {
     if (!privateNote.trim()) return;
 
+    // Prevent double-sends with a ref guard
+    if (isSendingRef.current) {
+      console.log('Already sending, ignoring duplicate call');
+      return;
+    }
+
     if (interviewIdRef.current) {
       const text = privateNote;
-      setPrivateNote(''); // Clear input
+      setPrivateNote(''); // Clear input immediately
+      isSendingRef.current = true; // Lock sending
       setIsAIResponding(true); // Set BEFORE sending to catch fast response
+
       try {
         await sendMessage(interviewIdRef.current, text, 'user');
       } catch (e) {
         console.error("Failed to send text message", e);
         setIsAIResponding(false);
+      } finally {
+        isSendingRef.current = false; // Unlock
       }
     }
   };

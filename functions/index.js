@@ -427,10 +427,28 @@ exports.onMessageCreated = functions.firestore
                 rubricContent = openAILogic.rubrics[backendRound][backendDifficulty].content;
             }
 
+            // Add special instructions for RCA to prevent giving away answers
+            let additionalInstructions = '';
+            if (backendRound === 'RCA') {
+                additionalInstructions = `
+                
+CRITICAL RCA INTERVIEW RULES:
+- **NEVER reveal potential root causes or answers to the candidate**
+- **NEVER provide hints about what might have caused the issue**
+- **NEVER mention specific events, updates, or changes unless the candidate asks**
+- Only answer questions the candidate explicitly asks
+- If they ask a yes/no question, answer concisely
+- If they ask about a specific area, only provide data for that area
+- Make them do the detective work - don't guide them to the answer
+- ${backendDifficulty === 'HARD' ? 'Be especially strict - provide minimal information unless directly asked' : 'Guide them with questions, but never reveal causes'}
+                `;
+            }
+
             const systemPrompt = `${openAILogic.prompts.system_antigravity}
             
             ROUND: ${backendRound}
             DIFFICULTY: ${backendDifficulty}
+            ${additionalInstructions}
             
             RUBRIC:
             ${rubricContent}`;
