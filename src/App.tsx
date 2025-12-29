@@ -98,26 +98,38 @@ function AppContent() {
               setHasCompletedOnboarding(true);
               localStorage.setItem('pm-mock-onboarding', 'complete');
 
-              // 2. Get API Key from Settings Subcollection
+              // 2. Get API Key from localStorage (NOT Firestore - it's encrypted there)
+              // The API key in localStorage is used for client-side TTS
+              const savedPrefs = localStorage.getItem('pm-mock-preferences');
               let apiKey = '';
-              try {
-                const apiSettingsDoc = await getDoc(doc(db, 'users', user.uid, 'settings', 'openai'));
-                if (apiSettingsDoc.exists()) {
-                  apiKey = apiSettingsDoc.data().apiKey || '';
+              if (savedPrefs) {
+                try {
+                  const parsedPrefs = JSON.parse(savedPrefs);
+                  apiKey = parsedPrefs.apiKey || '';
+                } catch (e) {
+                  console.warn('Could not parse saved preferences', e);
                 }
-              } catch (e) {
-                console.warn('Could not fetch API key settings', e);
               }
 
-              // 3. Construct Preferences Object
+              // 3. Check if API key exists on server (for UI status)
+              try {
+                const keyStatus = await getApiKeyStatus();
+                if (keyStatus.hasKey && !apiKey) {
+                  console.log('API key exists on server but not in localStorage. User may need to re-enter it.');
+                }
+              } catch (e) {
+                console.warn('Could not check API key status', e);
+              }
+
+              // 4. Construct Preferences Object
               if (userData.preferences) {
                 const loadedPreferences: UserPreferences = {
                   ...userData.preferences,
-                  apiKey: apiKey // Merge API key
+                  apiKey: apiKey // Use localStorage key for TTS
                 };
                 setPreferences(loadedPreferences);
                 localStorage.setItem('pm-mock-preferences', JSON.stringify(loadedPreferences));
-                console.log('Restored preferences from Firestore', loadedPreferences);
+                console.log('Restored preferences from Firestore + localStorage');
               }
             }
           }
