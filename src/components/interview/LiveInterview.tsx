@@ -239,9 +239,10 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       };
 
       recognition.onerror = (event: any) => {
-        console.error("Speech recognition error", event.error);
-        // Don't stop on 'no-speech' error, just continue
+        // Don't log or stop on expected errors (aborted, no-speech)
+        // These are normal when AI is speaking or during pauses
         if (event.error !== 'no-speech' && event.error !== 'aborted') {
+          console.error("Speech recognition error:", event.error);
           setIsListening(false);
           setAvatarState('idle');
         }
