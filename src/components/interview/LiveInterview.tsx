@@ -79,7 +79,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
         // Set a timeout to warn if backend doesn't respond
         timeoutId = setTimeout(() => {
           if (isGenerating) {
-            setError("The AI interviewer is taking too long to respond. Please ensure the backend worker is running (cd server && npm start).");
+            setError("The AI interviewer is taking too long to respond. Please check your OpenAI API key configuration and try again.");
           }
         }, 15000);
 
