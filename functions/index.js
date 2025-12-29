@@ -610,15 +610,53 @@ Your "rubric_breakdown" array MUST include these exact categories with individua
     }
 }
 
-// Cloud Function: Trigger when interview status becomes 'active'
-exports.onInterviewActivated = functions.firestore
+// Cloud Function: Trigger when interview is created with status 'active'
+exports.onInterviewCreated = functions.firestore
+    .document('interviews/{interviewId}')
+    .onCreate(async (snap, context) => {
+        const interviewData = snap.data();
+        const interviewId = context.params.interviewId;
+
+        // Only process if status is 'active'
+        if (interviewData.status === 'active') {
+            const userId = interviewData.userId;
+            const interviewRound = interviewData.roundType;
+            const interviewDifficulty = interviewData.difficulty || 'MEDIUM';
+
+            // Get rubric content for first question generation
+            const roundMapping = {
+                'product-sense': 'PRODUCT_IMPROVEMENT',
+                'technical': 'PRODUCT_DESIGN',
+                'rca': 'RCA',
+                'metrics': 'METRICS',
+                'guesstimates': 'GUESSTIMATES',
+                'strategy': 'PRODUCT_STRATEGY'
+            };
+            const backendRound = roundMapping[interviewRound] || 'PRODUCT_IMPROVEMENT';
+            const backendDifficulty = interviewDifficulty.toUpperCase();
+
+            let rubricContent = '';
+            try {
+                if (openAILogic.rubrics[backendRound] && openAILogic.rubrics[backendRound][backendDifficulty]) {
+                    rubricContent = openAILogic.rubrics[backendRound][backendDifficulty].content;
+                }
+            } catch (error) {
+                console.error('Error loading rubric:', error);
+            }
+
+            await generateFirstQuestion(interviewId, userId, interviewRound, interviewDifficulty, backendRound, rubricContent);
+        }
+    });
+
+// Cloud Function: Trigger when interview status changes
+exports.onInterviewUpdated = functions.firestore
     .document('interviews/{interviewId}')
     .onUpdate(async (change, context) => {
         const before = change.before.data();
         const after = change.after.data();
         const interviewId = context.params.interviewId;
 
-        // Only process if status changed to 'active'
+        // Process if status changed to 'active' (from non-active state)
         if (before.status !== 'active' && after.status === 'active') {
             const userId = after.userId;
             const interviewRound = after.roundType;
