@@ -147,6 +147,12 @@ async function generateFirstQuestion(interviewId, userId, interviewRound, interv
     const userOpenAIKey = await getUserOpenAIKey(userId);
     if (!userOpenAIKey) {
         console.warn(`No OpenAI Key found for user ${userId}. Cannot generate first question.`);
+        // Send error message to user
+        await messagesRef.add({
+            sender: 'ai',
+            text: "Error: OpenAI API Key not configured. Please set your API key in settings.",
+            timestamp: admin.firestore.FieldValue.serverTimestamp()
+        });
         return;
     }
 
@@ -279,6 +285,16 @@ async function generateFirstQuestion(interviewId, userId, interviewRound, interv
         }
     } catch (error) {
         console.error('Error generating first question:', error);
+        // Send error message to user
+        try {
+            await messagesRef.add({
+                sender: 'ai',
+                text: `Error: ${error.message || 'Failed to generate first question. Please try again.'}`,
+                timestamp: admin.firestore.FieldValue.serverTimestamp()
+            });
+        } catch (err) {
+            console.error('Failed to send error message:', err);
+        }
     }
 }
 
@@ -611,7 +627,9 @@ Your "rubric_breakdown" array MUST include these exact categories with individua
 }
 
 // Cloud Function: Trigger when interview is created with status 'active'
-exports.onInterviewCreated = functions.firestore
+exports.onInterviewCreated = functions
+    .runWith({ timeoutSeconds: 540, memory: '512MB' })
+    .firestore
     .document('interviews/{interviewId}')
     .onCreate(async (snap, context) => {
         const interviewData = snap.data();
@@ -649,7 +667,9 @@ exports.onInterviewCreated = functions.firestore
     });
 
 // Cloud Function: Trigger when interview status changes
-exports.onInterviewUpdated = functions.firestore
+exports.onInterviewUpdated = functions
+    .runWith({ timeoutSeconds: 540, memory: '512MB' })
+    .firestore
     .document('interviews/{interviewId}')
     .onUpdate(async (change, context) => {
         const before = change.before.data();
@@ -694,7 +714,9 @@ exports.onInterviewUpdated = functions.firestore
     });
 
 // Cloud Function: Trigger when a new message is created
-exports.onMessageCreated = functions.firestore
+exports.onMessageCreated = functions
+    .runWith({ timeoutSeconds: 540, memory: '512MB' })
+    .firestore
     .document('interviews/{interviewId}/messages/{messageId}')
     .onCreate(async (snap, context) => {
         const messageData = snap.data();
