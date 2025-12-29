@@ -217,6 +217,42 @@ exports.validateApiKey = functions.https.onCall(async (data, context) => {
     }
 });
 
+/**
+ * Get decrypted API key for client-side TTS
+ * Called on login to populate localStorage
+ * The key is returned securely over HTTPS to the authenticated user only
+ */
+exports.getDecryptedApiKey = functions.https.onCall(async (data, context) => {
+    if (!context.auth) {
+        throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
+    }
+
+    const userId = context.auth.uid;
+
+    try {
+        const doc = await db.collection('users').doc(userId).collection('settings').doc('openai').get();
+
+        if (!doc.exists) {
+            return { hasKey: false, apiKey: null };
+        }
+
+        const keyData = doc.data();
+        const apiKey = decryptApiKey(keyData);
+
+        if (!apiKey) {
+            return { hasKey: true, apiKey: null, error: 'Failed to decrypt' };
+        }
+
+        // Return the decrypted key - this goes over HTTPS to the authenticated user only
+        console.log(`Decrypted API key for user: ${userId}`);
+        return { hasKey: true, apiKey: apiKey };
+
+    } catch (error) {
+        console.error('Decryption error:', error);
+        throw new functions.https.HttpsError('internal', 'Failed to retrieve API key');
+    }
+});
+
 // ============================================
 // FIRESTORE TRIGGERS (Interview Handling)
 // ============================================

@@ -10,7 +10,7 @@ import InsightsScreen from './components/insights/InsightsScreen';
 import ProgressScreen from './components/progress/ProgressScreen';
 import SettingsScreen from './components/settings/SettingsScreen';
 import { initAnalytics, identifyUser, trackEvent, AnalyticsEvents } from './lib/analytics';
-import { encryptAndStoreApiKey, getApiKeyStatus, deleteApiKey } from './lib/api-client';
+import { encryptAndStoreApiKey, getApiKeyStatus, deleteApiKey, getDecryptedApiKey } from './lib/api-client';
 
 // Types
 export interface User {
@@ -98,38 +98,40 @@ function AppContent() {
               setHasCompletedOnboarding(true);
               localStorage.setItem('pm-mock-onboarding', 'complete');
 
-              // 2. Get API Key from localStorage (NOT Firestore - it's encrypted there)
-              // The API key in localStorage is used for client-side TTS
-              const savedPrefs = localStorage.getItem('pm-mock-preferences');
+              // 2. Fetch decrypted API key from server for TTS
+              // This ensures the key is available even if localStorage was cleared
               let apiKey = '';
-              if (savedPrefs) {
-                try {
-                  const parsedPrefs = JSON.parse(savedPrefs);
-                  apiKey = parsedPrefs.apiKey || '';
-                } catch (e) {
-                  console.warn('Could not parse saved preferences', e);
-                }
-              }
-
-              // 3. Check if API key exists on server (for UI status)
               try {
-                const keyStatus = await getApiKeyStatus();
-                if (keyStatus.hasKey && !apiKey) {
-                  console.log('API key exists on server but not in localStorage. User may need to re-enter it.');
+                const keyResult = await getDecryptedApiKey();
+                if (keyResult.hasKey && keyResult.apiKey) {
+                  apiKey = keyResult.apiKey;
+                  console.log('API key retrieved from server for TTS');
+                } else if (keyResult.hasKey && !keyResult.apiKey) {
+                  console.warn('API key exists but failed to decrypt:', keyResult.error);
                 }
               } catch (e) {
-                console.warn('Could not check API key status', e);
+                console.warn('Could not fetch API key from server, checking localStorage', e);
+                // Fallback to localStorage if Cloud Function call fails
+                const savedPrefs = localStorage.getItem('pm-mock-preferences');
+                if (savedPrefs) {
+                  try {
+                    const parsedPrefs = JSON.parse(savedPrefs);
+                    apiKey = parsedPrefs.apiKey || '';
+                  } catch (parseError) {
+                    console.warn('Could not parse saved preferences', parseError);
+                  }
+                }
               }
 
-              // 4. Construct Preferences Object
+              // 3. Construct Preferences Object
               if (userData.preferences) {
                 const loadedPreferences: UserPreferences = {
                   ...userData.preferences,
-                  apiKey: apiKey // Use localStorage key for TTS
+                  apiKey: apiKey // Use decrypted key for TTS
                 };
                 setPreferences(loadedPreferences);
                 localStorage.setItem('pm-mock-preferences', JSON.stringify(loadedPreferences));
-                console.log('Restored preferences from Firestore + localStorage');
+                console.log('Preferences loaded with API key for TTS');
               }
             }
           }

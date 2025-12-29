@@ -53,3 +53,13 @@ export async function validateApiKey(): Promise<{ valid: boolean; error?: string
     const result = await validateApiKeyFn({});
     return result.data as { valid: boolean; error?: string };
 }
+
+/**
+ * Get decrypted API key for client-side TTS
+ * Called on login to populate localStorage
+ */
+export async function getDecryptedApiKey(): Promise<{ hasKey: boolean; apiKey: string | null; error?: string }> {
+    const getDecryptedApiKeyFn = httpsCallable(functions, 'getDecryptedApiKey');
+    const result = await getDecryptedApiKeyFn({});
+    return result.data as { hasKey: boolean; apiKey: string | null; error?: string };
+}
