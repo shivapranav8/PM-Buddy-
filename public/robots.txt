@@ -1,0 +1,3 @@
+User-agent: *
+Allow: /
+Sitemap: https://pm-interview-buddy.web.app/sitemap.xml
