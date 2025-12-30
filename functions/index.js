@@ -783,38 +783,49 @@ Your "rubric_breakdown" array MUST include these exact categories with individua
  */
 exports.posthogProxy = functions.https.onRequest((req, res) => {
     cors(req, res, async () => {
-        // Strip the /ingest prefix to map to PostHog root
-        // Example: /ingest/e -> /e
-        // If req.path comes in as /ingest/e, we want /e
-        // Note: req.path depends on hosting rewrite behavior, usually includes full path
+        // Strip the /ingest prefix to map to PostHog root effectively
+        // We use req.url to ensure we capture the query string arguments (?ip=1&...)
 
-        let targetPath = req.path;
+        let targetPath = req.url;
+        // Simple replace for the prefix
         if (targetPath.startsWith('/ingest')) {
             targetPath = targetPath.replace('/ingest', '');
         }
 
         const targetUrl = `https://us.i.posthog.com${targetPath}`;
 
-        console.log(`Proxying ${req.method} request from ${req.path} to ${targetUrl}`);
+        // Debug log
+        console.log(`Proxying ${req.method} from ${req.url} to ${targetUrl}`);
 
         try {
-            // Forward headers but filter out host/origin to avoid confusion
+            // Forward headers but filter out sensitive/confusing ones
             const headers = { ...req.headers };
             delete headers.host;
             delete headers.origin;
             delete headers.referer;
 
-            const response = await fetch(targetUrl, {
+            const fetchOptions = {
                 method: req.method,
                 headers: headers,
-                body: (req.method !== 'GET' && req.method !== 'HEAD') ? JSON.stringify(req.body) : undefined
-            });
+            };
+
+            // Only attach body if it's not GET/HEAD and body exists
+            if (req.method !== 'GET' && req.method !== 'HEAD' && req.body) {
+                // If body is already parsed by Firebase (object), stringify it
+                if (typeof req.body === 'object' && !Buffer.isBuffer(req.body)) {
+                    fetchOptions.body = JSON.stringify(req.body);
+                } else {
+                    // Buffer or string
+                    fetchOptions.body = req.body;
+                }
+            }
+
+            const response = await fetch(targetUrl, fetchOptions);
 
             const data = await response.text();
 
-            // Forward response status and headers
             res.status(response.status);
-            // Copy keys from response.headers if needed, or simple send
+            // Forward relevant headers from PostHog if needed, usually status+body is enough
             res.send(data);
         } catch (error) {
             console.error('PostHog Proxy Error:', error);
