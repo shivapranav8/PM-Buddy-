@@ -586,8 +586,8 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
         {/* Left: Logo + Recording indicator */}
         <div className="flex items-center gap-4">
           <div className="flex items-center gap-2">
-            <img src="/logo.png" alt="PM Buddy" className="w-8 h-8 rounded-lg" />
-            <span className="text-white font-semibold">PM Buddy</span>
+            <img src="/logo.png" alt="PM Interview Buddy" className="w-8 h-8 rounded-lg" />
+            <span className="text-white font-semibold">PM Interview Buddy</span>
           </div>
 
           <div className="flex items-center gap-2 text-red-500 text-sm">

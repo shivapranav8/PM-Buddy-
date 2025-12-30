@@ -18,6 +18,10 @@
         ],
         "rewrites": [
             {
+                "source": "/ingest/**",
+                "function": "posthogProxy"
+            },
+            {
                 "source": "**",
                 "destination": "/index.html"
             }

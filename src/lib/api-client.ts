@@ -1,5 +1,5 @@
 /**
- * API Client for PM Mock Studio
+ * API Client for PM Interview Buddy
  * Uses Firebase Cloud Functions (callable)
  */
 

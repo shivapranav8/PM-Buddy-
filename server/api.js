@@ -1,5 +1,5 @@
 /**
- * API Server for PM Mock Studio
+ * API Server for PM Interview Buddy
  * Handles secure API key encryption/decryption
  */
 

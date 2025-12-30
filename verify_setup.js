@@ -1,7 +1,7 @@
 const fs = require('fs');
 const path = require('path');
 
-console.log("Verifying PM Mock Studio Setup...");
+console.log("Verifying PM Interview Buddy Setup...");
 
 // Check Backend Config
 const serviceAccountPath = path.join(__dirname, 'server', 'serviceAccountKey.json');

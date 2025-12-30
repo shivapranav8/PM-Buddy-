@@ -1,7 +1,7 @@
 
-  # PM Mock Studio Design
+  # PM Interview Buddy Design
 
-  This is a code bundle for PM Mock Studio Design
+  This is a code bundle for PM Interview Buddy Design
   ## Running the code
 
   Run `npm i` to install the dependencies.

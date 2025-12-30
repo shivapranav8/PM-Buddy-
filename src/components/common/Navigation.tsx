@@ -26,10 +26,10 @@ export default function Navigation({ user, currentPage, onLogout }: NavigationPr
           <Link to="/home" className="flex items-center gap-2">
             <img
               src="/logo.png"
-              alt="PM Buddy Logo"
+              alt="PM Interview Buddy Logo"
               className="w-10 h-10 object-contain"
             />
-            <span className="text-slate-900 font-semibold hidden sm:block">PM Buddy</span>
+            <span className="text-slate-900 font-semibold hidden sm:block">PM Interview Buddy</span>
           </Link>
 
           {/* Nav items */}

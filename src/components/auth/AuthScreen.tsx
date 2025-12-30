@@ -27,8 +27,8 @@ export default function AuthScreen() {
       <div className="max-w-md w-full">
         {/* Logo and branding */}
         <div className="text-center mb-12">
-          <img src="/logo.png" alt="PM Buddy" className="w-16 h-16 mb-6 shadow-lg rounded-2xl mx-auto" />
-          <h1 className="text-slate-900 mb-3">PM Buddy</h1>
+          <img src="/logo.png" alt="PM Interview Buddy" className="w-16 h-16 mb-6 shadow-lg rounded-2xl mx-auto" />
+          <h1 className="text-slate-900 mb-3">PM Interview Buddy</h1>
           <p className="text-slate-600">
             Practice realistic PM interviews.<br />
             Get better, faster.

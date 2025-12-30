@@ -1,5 +1,5 @@
 /**
- * Firebase Cloud Functions for PM Mock Studio
+ * Firebase Cloud Functions for PM Interview Buddy
  * 
  * Includes:
  * - API Key encryption/decryption (HTTPS callable)
@@ -321,7 +321,8 @@ exports.onInterviewCreated = functions.firestore
 
             // Parse practice questions from rubric
             let practiceQuestions = [];
-            const practiceMatch = rubricContent.match(/Practice Questions:\s*((?:- .+\n?)+)/i);
+            // More flexible regex to handle varied "Practice Questions" headers
+            const practiceMatch = rubricContent.match(/Practice Questions.*:\s*((?:- .+\n?)+)/i);
             if (practiceMatch?.[1]) {
                 practiceQuestions = practiceMatch[1].split('\n')
                     .map(line => line.replace(/^-\s*/, '').trim())
@@ -333,13 +334,20 @@ exports.onInterviewCreated = functions.firestore
             if (practiceQuestions.length > 0) {
                 const randomIndex = Math.floor(Math.random() * practiceQuestions.length);
                 selectedQuestion = practiceQuestions[randomIndex];
+                console.log(`Selected curated question: ${selectedQuestion}`);
             } else {
-                // Fallback to AI generation
+                console.warn('No curated questions found, falling back to AI generation');
+                // Fallback to AI generation with better context
                 const systemPrompt = openAILogic.prompts.system_antigravity;
                 const completion = await userOpenAI.chat.completions.create({
                     messages: [
                         { role: "system", content: systemPrompt },
-                        { role: "user", content: `Generate a ${backendRound} interview question at ${backendDifficulty} difficulty. Just the question, under 15 words.` }
+                        {
+                            role: "user", content: `Generate a ${backendRound} interview question at ${backendDifficulty} difficulty. 
+                        
+IMPORTANT: Always mention a real-world product name or specific software (e.g., Instagram, Swiggy, Uber, or a generic SaaS/B2B platform) in the question to provide context. 
+
+Just return the question text, under 20 words.` }
                     ],
                     model: "gpt-4o",
                     max_tokens: 60
@@ -667,6 +675,66 @@ Your "rubric_breakdown" array MUST include these exact categories with individua
 8. { "category": "Metrics & Success Criteria", "score": <0-5>, "feedback": "..." }
 9. { "category": "Communication & Leadership", "score": <0-5>, "feedback": "..." }
 ` : ''}
+                ${backendRound === 'GUESSTIMATES' ? `
+CRITICAL FOR GUESSTIMATES:
+Your "scores" object MUST include these exact keys with percentage values (0-100):
+{
+  "Problem Clarification": <0-100>,
+  "Logical Structure": <0-100>,
+  "Reasonable Assumptions": <0-100>,
+  "Quantitative Comfort": <0-100>,
+  "Sanity Checking": <0-100>,
+  "Communication & Composure": <0-100>
+}
+
+Your "rubric_breakdown" array MUST include these exact categories with individual scores (0-5):
+1. { "category": "Problem Clarification", "score": <0-5>, "feedback": "..." }
+2. { "category": "Logical Structure", "score": <0-5>, "feedback": "..." }
+3. { "category": "Reasonable Assumptions", "score": <0-5>, "feedback": "..." }
+4. { "category": "Quantitative Comfort", "score": <0-5>, "feedback": "..." }
+5. { "category": "Sanity Checking", "score": <0-5>, "feedback": "..." }
+6. { "category": "Communication & Composure", "score": <0-5>, "feedback": "..." }
+` : ''}
+                ${backendRound === 'METRICS' ? `
+CRITICAL FOR METRICS:
+Your "scores" object MUST include these exact keys with percentage values (0-100):
+{
+  "Structured Problem Approach": <0-100>,
+  "Strategic Metric Selection": <0-100>,
+  "Technical Operationalization": <0-100>,
+  "Trade-off Evaluation": <0-100>
+}
+
+Your "rubric_breakdown" array MUST include these exact categories with individual scores (0-5):
+1. { "category": "Structured Problem Approach", "score": <0-5>, "feedback": "..." }
+2. { "category": "Strategic Metric Selection", "score": <0-5>, "feedback": "..." }
+3. { "category": "Technical Operationalization", "score": <0-5>, "feedback": "..." }
+4. { "category": "Trade-off Evaluation", "score": <0-5>, "feedback": "..." }
+` : ''}
+                ${backendRound === 'PRODUCT_DESIGN' ? `
+CRITICAL FOR PRODUCT_DESIGN:
+Your "scores" object MUST include these exact keys with percentage values (0-100):
+{
+  "Problem Framing & Clarification": <0-100>,
+  "User Understanding & Empathy": <0-100>,
+  "Solution Exploration": <0-100>,
+  "Prioritization & Judgment": <0-100>,
+  "Solution Structure & Coherence": <0-100>,
+  "Trade-offs & Constraints": <0-100>,
+  "Success Metrics & Validation": <0-100>,
+  "Communication & Reasoning": <0-100>
+}
+
+Your "rubric_breakdown" array MUST include these exact categories with individual scores (0-5):
+1. { "category": "Problem Framing & Clarification", "score": <0-5>, "feedback": "..." }
+2. { "category": "User Understanding & Empathy", "score": <0-5>, "feedback": "..." }
+3. { "category": "Solution Exploration", "score": <0-5>, "feedback": "..." }
+4. { "category": "Prioritization & Judgment", "score": <0-5>, "feedback": "..." }
+5. { "category": "Solution Structure & Coherence", "score": <0-5>, "feedback": "..." }
+6. { "category": "Trade-offs & Constraints", "score": <0-5>, "feedback": "..." }
+7. { "category": "Success Metrics & Validation", "score": <0-5>, "feedback": "..." }
+8. { "category": "Communication & Reasoning", "score": <0-5>, "feedback": "..." }
+` : ''}
                 `;
 
                 const completion = await userOpenAI.chat.completions.create({
@@ -708,3 +776,49 @@ Your "rubric_breakdown" array MUST include these exact categories with individua
 
         return null;
     });
+
+/**
+ * Reverse Proxy for PostHog to bypass ad blockers
+ * Access at /ingest matches usually map to /posthogProxy via firebase.json rewrites
+ */
+exports.posthogProxy = functions.https.onRequest((req, res) => {
+    cors(req, res, async () => {
+        // Strip the /ingest prefix to map to PostHog root
+        // Example: /ingest/e -> /e
+        // If req.path comes in as /ingest/e, we want /e
+        // Note: req.path depends on hosting rewrite behavior, usually includes full path
+
+        let targetPath = req.path;
+        if (targetPath.startsWith('/ingest')) {
+            targetPath = targetPath.replace('/ingest', '');
+        }
+
+        const targetUrl = `https://us.i.posthog.com${targetPath}`;
+
+        console.log(`Proxying ${req.method} request from ${req.path} to ${targetUrl}`);
+
+        try {
+            // Forward headers but filter out host/origin to avoid confusion
+            const headers = { ...req.headers };
+            delete headers.host;
+            delete headers.origin;
+            delete headers.referer;
+
+            const response = await fetch(targetUrl, {
+                method: req.method,
+                headers: headers,
+                body: (req.method !== 'GET' && req.method !== 'HEAD') ? JSON.stringify(req.body) : undefined
+            });
+
+            const data = await response.text();
+
+            // Forward response status and headers
+            res.status(response.status);
+            // Copy keys from response.headers if needed, or simple send
+            res.send(data);
+        } catch (error) {
+            console.error('PostHog Proxy Error:', error);
+            res.status(500).send('Proxy Error');
+        }
+    });
+});

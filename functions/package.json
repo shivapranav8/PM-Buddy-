@@ -1,7 +1,7 @@
 {
     "name": "pm-mock-studio-functions",
     "version": "1.0.0",
-    "description": "Firebase Cloud Functions for PM Mock Studio",
+    "description": "Firebase Cloud Functions for PM Interview Buddy",
     "main": "index.js",
     "engines": {
         "node": "20"

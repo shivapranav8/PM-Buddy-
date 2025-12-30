@@ -26,7 +26,7 @@ export default function OnboardingWelcome({ onNext }: OnboardingWelcomeProps) {
             </svg>
           </div>
           <h1 className="text-slate-900 mb-4">
-            Welcome to PM Buddy
+            Welcome to PM Interview Buddy
           </h1>
           <p className="text-slate-600 max-w-xl mx-auto text-lg">
             Get interview-ready with realistic PM mocks. Practice all 7 core interview rounds, get AI-powered feedback, and track your progress.
