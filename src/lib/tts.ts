@@ -3,13 +3,14 @@
  * Provides natural-sounding voice synthesis using OpenAI's TTS API
  */
 
+import { generateSpeechAudio } from './api-client';
+
 export type VoiceModel = 'alloy' | 'echo' | 'fable' | 'onyx' | 'nova' | 'shimmer';
 
 export interface TTSOptions {
     text: string;
     voice?: VoiceModel;
     speed?: number;
-    apiKey: string;
 }
 
 /**
@@ -26,37 +27,16 @@ export function getVoiceForAccent(accent: string): VoiceModel {
 }
 
 /**
- * Generate speech audio using OpenAI TTS API
+ * Generate speech audio using OpenAI TTS (proxied through a Cloud Function
+ * so the user's API key never reaches the browser)
  * @returns Audio blob that can be played in browser
  */
 export async function generateSpeech(options: TTSOptions): Promise<Blob> {
-    const { text, voice = 'alloy', speed = 1.0, apiKey } = options;
+    const { text, voice = 'alloy', speed = 1.0 } = options;
 
-    if (!apiKey || !apiKey.startsWith('sk-')) {
-        throw new Error('Valid OpenAI API key required for TTS');
-    }
-
-    const response = await fetch('https://api.openai.com/v1/audio/speech', {
-        method: 'POST',
-        headers: {
-            'Authorization': `Bearer ${apiKey}`,
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            model: 'tts-1', // Use tts-1 for faster, cheaper generation (tts-1-hd for higher quality)
-            input: text,
-            voice: voice,
-            speed: speed,
-            response_format: 'mp3'
-        }),
-    });
-
-    if (!response.ok) {
-        const error = await response.json().catch(() => ({ error: { message: 'Unknown error' } }));
-        throw new Error(`OpenAI TTS API error: ${error.error?.message || response.statusText}`);
-    }
-
-    return await response.blob();
+    const audio = await generateSpeechAudio({ text, voice, speed });
+    const bytes = Uint8Array.from(atob(audio), c => c.charCodeAt(0));
+    return new Blob([bytes], { type: 'audio/mpeg' });
 }
 
 /**

@@ -13,7 +13,7 @@ interface SettingsScreenProps {
 
 export default function SettingsScreen({ user, preferences, onUpdatePreferences, onLogout }: SettingsScreenProps) {
   const navigate = useNavigate();
-  const [apiKey, setApiKey] = useState(preferences?.apiKey || '');
+  const [apiKey, setApiKey] = useState('');
   const [voiceSpeed, setVoiceSpeed] = useState(preferences?.voiceSpeed || 'Normal');
   const [voiceAccent, setVoiceAccent] = useState<'US English' | 'UK English'>(preferences?.voiceAccent === 'UK English' ? 'UK English' : 'US English');
   const [voiceEnabled, setVoiceEnabled] = useState(preferences?.voiceEnabled ?? true);
@@ -39,6 +39,7 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
           ...preferences,
           apiKey
         });
+        setApiKey('');
         setApiKeySaveSuccess(true);
         setTimeout(() => setApiKeySaveSuccess(false), 3000);
       }
@@ -143,7 +144,7 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
               type="password"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              placeholder="sk-..."
+              placeholder={preferences?.hasApiKey ? 'Key saved. Enter a new key to replace it' : 'sk-...'}
               className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
             />
           </div>
@@ -166,7 +167,7 @@ export default function SettingsScreen({ user, preferences, onUpdatePreferences,
 
             <button
               onClick={handleRemoveApiKey}
-              disabled={isSavingApiKey || !apiKey.trim()}
+              disabled={isSavingApiKey || !preferences?.hasApiKey}
               className="px-6 py-3 bg-red-50 text-red-600 border-2 border-red-200 rounded-xl hover:bg-red-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
