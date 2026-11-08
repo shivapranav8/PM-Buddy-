@@ -217,39 +217,52 @@ exports.validateApiKey = functions.https.onCall(async (data, context) => {
     }
 });
 
+const TTS_VOICES = ['alloy', 'echo', 'fable', 'onyx', 'nova', 'shimmer'];
+const TTS_MAX_CHARS = 4096; // OpenAI TTS input limit
+
 /**
- * Get decrypted API key for client-side TTS
- * Called on login to populate localStorage
- * The key is returned securely over HTTPS to the authenticated user only
+ * Generate interviewer speech with the user's stored OpenAI key.
+ * The key is decrypted and used only on the server; the client receives audio, never the key.
  */
-exports.getDecryptedApiKey = functions.https.onCall(async (data, context) => {
+exports.generateSpeech = functions.https.onCall(async (data, context) => {
     if (!context.auth) {
         throw new functions.https.HttpsError('unauthenticated', 'User must be authenticated');
     }
 
+    const { text, voice = 'alloy', speed = 1.0 } = data || {};
+
+    if (!text || typeof text !== 'string' || text.length > TTS_MAX_CHARS) {
+        throw new functions.https.HttpsError('invalid-argument', `Text must be 1-${TTS_MAX_CHARS} characters`);
+    }
+    if (!TTS_VOICES.includes(voice)) {
+        throw new functions.https.HttpsError('invalid-argument', 'Unsupported voice');
+    }
+    if (typeof speed !== 'number' || speed < 0.25 || speed > 4.0) {
+        throw new functions.https.HttpsError('invalid-argument', 'Speed must be between 0.25 and 4.0');
+    }
+
     const userId = context.auth.uid;
+    const doc = await db.collection('users').doc(userId).collection('settings').doc('openai').get();
+    const apiKey = doc.exists ? decryptApiKey(doc.data()) : null;
+
+    if (!apiKey) {
+        throw new functions.https.HttpsError('failed-precondition', 'No OpenAI API key stored');
+    }
 
     try {
-        const doc = await db.collection('users').doc(userId).collection('settings').doc('openai').get();
-
-        if (!doc.exists) {
-            return { hasKey: false, apiKey: null };
-        }
-
-        const keyData = doc.data();
-        const apiKey = decryptApiKey(keyData);
-
-        if (!apiKey) {
-            return { hasKey: true, apiKey: null, error: 'Failed to decrypt' };
-        }
-
-        // Return the decrypted key - this goes over HTTPS to the authenticated user only
-        console.log(`Decrypted API key for user: ${userId}`);
-        return { hasKey: true, apiKey: apiKey };
-
+        const openai = new OpenAI({ apiKey });
+        const response = await openai.audio.speech.create({
+            model: 'tts-1',
+            input: text,
+            voice,
+            speed,
+            response_format: 'mp3'
+        });
+        const audio = Buffer.from(await response.arrayBuffer()).toString('base64');
+        return { audio };
     } catch (error) {
-        console.error('Decryption error:', error);
-        throw new functions.https.HttpsError('internal', 'Failed to retrieve API key');
+        console.error(`TTS error for user ${userId}:`, error.message);
+        throw new functions.https.HttpsError('internal', 'Failed to generate speech');
     }
 });
 

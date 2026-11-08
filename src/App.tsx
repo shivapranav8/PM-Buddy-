@@ -10,7 +10,7 @@ import InsightsScreen from './components/insights/InsightsScreen';
 import ProgressScreen from './components/progress/ProgressScreen';
 import SettingsScreen from './components/settings/SettingsScreen';
 import { initAnalytics, identifyUser, trackEvent, AnalyticsEvents } from './lib/analytics';
-import { encryptAndStoreApiKey, getApiKeyStatus, deleteApiKey, getDecryptedApiKey } from './lib/api-client';
+import { encryptAndStoreApiKey, getApiKeyStatus, deleteApiKey } from './lib/api-client';
 
 // Types
 export interface User {
@@ -46,8 +46,8 @@ export interface TimelineEvent {
 }
 
 export interface UserPreferences {
-  apiKey: string; // Note: This is only used locally, actual key is encrypted on server
-  hasApiKey?: boolean; // Indicates if user has stored an API key
+  apiKey?: string; // Only set transiently when the user submits a key; never kept in state or localStorage
+  hasApiKey?: boolean; // Indicates if user has stored an API key (the key itself stays encrypted on the server)
   targetCompanies: string[];
   level: string;
   focusAreas: string[];
@@ -55,6 +55,12 @@ export interface UserPreferences {
   voiceSpeed?: 'Slow' | 'Normal' | 'Fast';
   voiceAccent?: 'US English' | 'UK English';
   voiceEnabled?: boolean;
+}
+
+// Drop the raw API key before preferences go into React state or localStorage
+function withoutApiKey(prefs: UserPreferences): UserPreferences {
+  const { apiKey: _apiKey, ...rest } = prefs;
+  return rest;
 }
 
 function AppContent() {
@@ -74,7 +80,12 @@ function AppContent() {
       setHasCompletedOnboarding(true);
     }
     if (savedPreferences) {
-      setPreferences(JSON.parse(savedPreferences));
+      const parsed: UserPreferences = JSON.parse(savedPreferences);
+      // Older builds cached the plaintext key here; scrub it
+      if (parsed.apiKey !== undefined) {
+        localStorage.setItem('pm-mock-preferences', JSON.stringify(withoutApiKey(parsed)));
+      }
+      setPreferences(withoutApiKey(parsed));
     }
     if (savedSessions) {
       setSessions(JSON.parse(savedSessions));
@@ -98,40 +109,23 @@ function AppContent() {
               setHasCompletedOnboarding(true);
               localStorage.setItem('pm-mock-onboarding', 'complete');
 
-              // 2. Fetch decrypted API key from server for TTS
-              // This ensures the key is available even if localStorage was cleared
-              let apiKey = '';
+              // 2. Check whether an API key is stored (the key itself never leaves the server)
+              let hasApiKey = false;
               try {
-                const keyResult = await getDecryptedApiKey();
-                if (keyResult.hasKey && keyResult.apiKey) {
-                  apiKey = keyResult.apiKey;
-                  console.log('API key retrieved from server for TTS');
-                } else if (keyResult.hasKey && !keyResult.apiKey) {
-                  console.warn('API key exists but failed to decrypt:', keyResult.error);
-                }
+                const keyStatus = await getApiKeyStatus();
+                hasApiKey = keyStatus.hasKey;
               } catch (e) {
-                console.warn('Could not fetch API key from server, checking localStorage', e);
-                // Fallback to localStorage if Cloud Function call fails
-                const savedPrefs = localStorage.getItem('pm-mock-preferences');
-                if (savedPrefs) {
-                  try {
-                    const parsedPrefs = JSON.parse(savedPrefs);
-                    apiKey = parsedPrefs.apiKey || '';
-                  } catch (parseError) {
-                    console.warn('Could not parse saved preferences', parseError);
-                  }
-                }
+                console.warn('Could not fetch API key status from server', e);
               }
 
               // 3. Construct Preferences Object
               if (userData.preferences) {
-                const loadedPreferences: UserPreferences = {
+                const loadedPreferences: UserPreferences = withoutApiKey({
                   ...userData.preferences,
-                  apiKey: apiKey // Use decrypted key for TTS
-                };
+                  hasApiKey
+                });
                 setPreferences(loadedPreferences);
                 localStorage.setItem('pm-mock-preferences', JSON.stringify(loadedPreferences));
-                console.log('Preferences loaded with API key for TTS');
               }
             }
           }
@@ -145,10 +139,11 @@ function AppContent() {
   }, [user]);
 
   const handleCompleteOnboarding = async (prefs: UserPreferences) => {
+    const safePrefs = withoutApiKey(prefs);
     setHasCompletedOnboarding(true);
-    setPreferences(prefs);
+    setPreferences(safePrefs);
     localStorage.setItem('pm-mock-onboarding', 'complete');
-    localStorage.setItem('pm-mock-preferences', JSON.stringify(prefs));
+    localStorage.setItem('pm-mock-preferences', JSON.stringify(safePrefs));
     trackEvent(AnalyticsEvents.SIGNUP_COMPLETED, { method: 'google' });
 
     // Save API Key and Onboarding Status to Firestore
@@ -162,6 +157,9 @@ function AppContent() {
           try {
             await encryptAndStoreApiKey(prefs.apiKey);
             console.log('API key encrypted and stored via API');
+            const storedPrefs = { ...safePrefs, hasApiKey: true };
+            setPreferences(storedPrefs);
+            localStorage.setItem('pm-mock-preferences', JSON.stringify(storedPrefs));
           } catch (apiError) {
             console.error('Failed to encrypt API key:', apiError);
             // Continue with onboarding even if encryption fails
@@ -208,8 +206,9 @@ function AppContent() {
 
   const handleUpdatePreferences = async (prefs: UserPreferences) => {
     console.log('handleUpdatePreferences called', { hasUser: !!user, hasApiKey: !!prefs.apiKey });
-    setPreferences(prefs);
-    localStorage.setItem('pm-mock-preferences', JSON.stringify(prefs));
+    let safePrefs = withoutApiKey(prefs);
+    setPreferences(safePrefs);
+    localStorage.setItem('pm-mock-preferences', JSON.stringify(safePrefs));
 
     // Update preferences in Firestore
     if (user) {
@@ -223,6 +222,7 @@ function AppContent() {
           try {
             await encryptAndStoreApiKey(prefs.apiKey);
             console.log('API Key encrypted and stored successfully');
+            safePrefs = { ...safePrefs, hasApiKey: true };
           } catch (apiError) {
             console.error('Failed to encrypt API key via server:', apiError);
             throw apiError;
@@ -232,10 +232,14 @@ function AppContent() {
           try {
             await deleteApiKey();
             console.log('API Key deleted successfully');
+            safePrefs = { ...safePrefs, hasApiKey: false };
           } catch (apiError) {
             console.error('Failed to delete API key:', apiError);
           }
         }
+
+        setPreferences(safePrefs);
+        localStorage.setItem('pm-mock-preferences', JSON.stringify(safePrefs));
 
         // Save other preferences to user document
         await setDoc(doc(db, 'users', user.uid), {

@@ -148,10 +148,10 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
 
     // Pre-generate welcome audio for CURRENT round type only (not all rounds)
     const preGenerateWelcomeAudio = async () => {
-      const apiKey = user.preferences?.apiKey;
+      const hasApiKey = user.preferences?.hasApiKey;
       const isVoiceEnabled = user.preferences?.voiceEnabled ?? true;
 
-      if (!apiKey || !isVoiceEnabled) return;
+      if (!hasApiKey || !isVoiceEnabled) return;
 
       const accent = user.preferences?.voiceAccent || 'US English';
       const voice = getVoiceForAccent(accent);
@@ -168,7 +168,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       if (!audioCache.get(welcomeText, voice, speed)) {
         try {
           console.log(`Pre-generating welcome audio for ${currentRoundType}...`);
-          const blob = await generateSpeech({ text: welcomeText, voice, speed, apiKey });
+          const blob = await generateSpeech({ text: welcomeText, voice, speed });
           audioCache.set(welcomeText, voice, speed, blob);
           console.log(`✓ Welcome audio cached for ${currentRoundType}`);
         } catch (err) {
@@ -307,9 +307,8 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
     const isVoiceEnabled = user.preferences?.voiceEnabled ?? true;
     if (!text || !isVoiceEnabled) return;
 
-    // Get API key from user preferences
-    const apiKey = user.preferences?.apiKey;
-    if (!apiKey) {
+    // TTS runs server-side with the user's stored key; skip if none is saved
+    if (!user.preferences?.hasApiKey) {
       console.warn('No API key found, skipping TTS');
       return;
     }
@@ -391,8 +390,7 @@ export default function LiveInterview({ user, onComplete }: LiveInterviewProps) 
       audioBlob = await generateSpeech({
         text,
         voice,
-        speed,
-        apiKey
+        speed
       });
 
       // Cache for future use
